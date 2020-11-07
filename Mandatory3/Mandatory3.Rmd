@@ -9,10 +9,9 @@ output: pdf_document
 rm(list = ls())
 library(coda)
 library(mvtnorm)
-library(deSolve)
 ```
 
-\textbf{Problem 1: Random number generation and Monte Carlo integration}
+\textbf{Problem 1: Random number generation and Monte Carlo integration}\
 \textbf{Problem 1A}\
 Generate $n$ independent random variables from the distribution-density $p(x)$.
 
@@ -174,7 +173,7 @@ The plot illustrates that $f(x)$ is proportional to $g(x)$, meaning that $f(x)$ 
 The result from the definite integral of $g(x)$ and the value from the importance sampling are approximately the same, showing that the importance sampling was successful.
 
 
-\textbf{Problem 2: Smile-shaped target}
+\textbf{Problem 2: Smile-shaped target}\
 \textbf{Problem 2A}\
 Use a MCMC algorithm to obtain MCMC samples.\
 \
@@ -230,7 +229,7 @@ twoDRWMH <- function(lprob, sigma, theta = c(0.0,0.0)){
     }
   }
   
-  print(c("Acceptance rate" = round(Nacc/(Nsim - 1), 3)))
+  print(c("Acceptance rate" = round(Nacc/(Nsim - 1), 4)))
   return(out)
 }
 
@@ -256,10 +255,12 @@ The simulation has a burn-in of the first 501 values, just to be sure that the i
 
 
 
-\textbf{Problem 3: IMH for simple logistic regression problem}
+\textbf{Problem 3: IMH for simple logistic regression problem}\
 \textbf{Problem 3A}\
 Use an independent MH sampler.
 ```{r}
+
+library(mvtnorm)
 
 df <- data.frame(read.table("logistic_regression_data.txt"))
 x <- df$x
@@ -279,24 +280,24 @@ logistic.lp <- function(theta){
     log.prior <- dnorm(alpha, sd =10, log=TRUE) + dnorm(beta, sd = 10, log = TRUE)
     
     # log-posterior kernel
-    return(exp(log.like + log.prior))
+    return(log.like + log.prior)
 }
 
 Nsim <- 10000
-
 
 iMH <- function(target_prob, theta, sigma, tuning) {
   res <- matrix(0, Nsim, 2)
   # allocate memory
   res[1, ] <- theta
   # old importance weight
-  wt.old <- target_prob(res[1, ])/dmvnorm(res[1, ], mean = theta, sigma = sigma)
+  wt.old <- exp(target_prob(res[1, ]))/dmvnorm(res[1, ], mean = theta, sigma = sigma)
   Nacc <- 0
+  
   for(i in 2:Nsim){
     # proposal (note, independent of past)
     thetaStar <- rmvnorm(1, mean = theta, sigma = sigma * tuning)
     # new importance weight
-    wt.star <- target_prob(thetaStar)/dmvnorm(thetaStar, mean = theta, sigma = sigma)
+    wt.star <- exp(target_prob(thetaStar)) / dmvnorm(thetaStar, mean = theta, sigma = sigma)
     
     # accept probability
     alpha <- min(1.0, wt.star / wt.old)
@@ -316,7 +317,7 @@ iMH <- function(target_prob, theta, sigma, tuning) {
 sigmas <- matrix(c(0.00653, -0.00058, -0.00058, 0.01689), 2, 2)
 thetas <- c(-0.102, 1.993)
 
-iMH.output <- iMH(logistic.lp, theta = thetas, sigma = sigmas, tuning = 1) # 0.6
+iMH.output <- iMH(logistic.lp, theta = thetas, sigma = sigmas, tuning = 0.6) # 0.6
 iMH.output.burned <- iMH.output[501:length(iMH.output[ ,1]), ]
 #Burning ikke nødvendig siden det er independence
 
@@ -327,35 +328,74 @@ print(
   )
 )
 
-hist(iMH.output.burned[ ,1], breaks = 60, freq = FALSE)
-curve(dnorm(x, mean(iMH.output.burned[,1]), sd(iMH.output.burned[,1])), add=TRUE)
+# hist(iMH.output.burned[ ,1], breaks = 60, freq = FALSE)
+# curve(dnorm(x, mean(iMH.output.burned[,1]), sd(iMH.output.burned[,1])), add=TRUE)
 
 print(var(iMH.output.burned[ ,1]))
 print(var(iMH.output.burned[ ,2]))
 
-hist(iMH.output.burned[ ,2], breaks = 60, freq = FALSE)
-curve(dnorm(x, mean(iMH.output.burned[,2]), sd(iMH.output.burned[,2])), add=TRUE)
+# hist(iMH.output.burned[ ,2], breaks = 60, freq = FALSE)
+# curve(dnorm(x, mean(iMH.output.burned[,2]), sd(iMH.output.burned[,2])), add=TRUE)
 
 
 # plot(iMH.output.burned,pch=20,cex=0.1,xlab="MCMC iteration #")
 
 # cov(iMH.output.burned)
 
-ess <- ESS(iMH.output.burned)
-c("ESS Theta 1" = ess[[1]], "ESS Theta 2" = ess[[2]])
+# ess <- ESS(iMH.output.burned)
+# c("ESS Theta 1" = ess[[1]], "ESS Theta 2" = ess[[2]])
 ```
 
-\textbf{Problem 3B}
-```{r False 3B, eval=FALSE, include=FALSE}
+As the function $logistics.lp$ returns the log-posterior kernel, taking $e^{logistics.lp}$ allows the independent MH sampler to operate with "normal" values instead of log-values.
 
-alpha <- iMH.output.burned[ , 1]
-beta <- iMH.output.burned[ , 2]
+Say something about the acceptance rate and the tuning.
+
+The mean from the independent MH sampler is the same as the point estimate from the initial maximum likelihood-based classical analysis.
+
+
+\textbf{Problem 3B}\
+```{r}
 
 mFunc <- function(x_i) {
   exp(alpha + beta * x_i) / (1 + exp(alpha + beta * x_i))
 }
 
-newX <- seq(-5, 5, length.out = 1000)
+stepInfo <- function(x_i) {
+  mstar <- exp(iMH.output.burned[ , 1] + iMH.output.burned[ , 2] * x_i) / (1 + exp(iMH.output.burned[ , 1] + iMH.output.burned[ , 2] * x_i))
+  med <- median(mstar)
+  # Quant01 is used in problem 3c)
+  quant01 <- quantile(mstar, 0.01)
+  quant05 <- quantile(mstar, 0.05)
+  quant95 <- quantile(mstar, 0.95)
+  return(c(med, quant01, quant05, quant95))
+}
+
+x <- seq(-5, 5, length.out = length(iMH.output.burned[ ,1]))
+plotmat <- matrix(0, length(x), 4)
+i <- 0
+for (val in x) {
+  i <- i+1
+  plotmat[i,] <- plotdist(val)
+}
+
+
+
+
+xSequence <- seq(-5, 5, length.out = length(iMH.output.burned[ ,1]))
+length(xSequence)
+
+plotInfo <- matrix(0, length(xSequence), 4)
+
+for (i in 1:length(xSequence)) {
+  plotInfo[i, ] <- stepInfo(i)
+}
+
+
+i <- 0
+for (val in x) {
+  i <- i+1
+  plotmat[i,] <- plotdist(val)
+}
 
 listMedian <- vector(length = length(newX))
 
@@ -414,8 +454,8 @@ legend("topleft", legend=c("0.01 Quantile"),
 ```
 
 
-\textbf{Problem 4A}
-\textbf{Problem 4B}
+\textbf{Problem 4A}\
+\textbf{Problem 4B}\
 ```{r}
 df <- data.frame(read.table(file="linear_regression_data.txt"))
 x <- df$x
@@ -425,6 +465,7 @@ y <- df$y
 #
 # Gibbsampler for bivariate normal target
 #
+
 n <- 100000 # number of Gibbs iterations
 theta <- c(1, 1, 1) # variable used as state throughout
 res <- matrix(0.0, 3*n+1, 3) # results, note stores twice per iteration
@@ -463,11 +504,14 @@ round(colMeans(res.burned), 5)
 
 plot(res.burned[,1], res.burned[,2], type="l")
 
+ess <- ESS(res.burned)
+c("ESS Theta 3" = ess[[3]])
+
 ```
 
 
 
-\textbf{Problem 4C}
+\textbf{Problem 4C}\
 ```{r}
 
 lm.out <- lm(y~x,data=df)
@@ -477,10 +521,10 @@ c("Alpha" = lm.out$coefficients[[1]], "Beta" = lm.out$coefficients[[2]])
 
 ```
 
-\textbf{Problem 4D}
+\textbf{Problem 4D}\
 ```{r}
 
-n <- 10000 # number of Gibbs iterations
+n <- 100000 # number of Gibbs iterations
 theta <- c(1, -1.2, 1.0) # variable used as state throughout
 res <- matrix(0.0, 2*n+1, 3) # results, note stores twice per iteration
 res[1, ] <- theta
@@ -515,16 +559,19 @@ round(colMeans(res.burned), 5)
 hist(res.burned[,1], breaks = 100, freq = FALSE)
 hist(res.burned[,2], breaks = 100, freq = FALSE)
 
-plot(res.burned[,1], res.burned[,2], type="l")
+plot(res.burned[,1], res.burned[,2])
+
+ess <- ESS(res.burned)
+c("ESS Theta 2" = ess[[2]])
 ```
-\textbf{Problem 4E}
+\textbf{Problem 4E}\
 :D
 ```{r}
 
 ```
 
 
-\textbf{Problem 5A}
+\textbf{Problem 5A}\
 ```{r}
 
 df <- data.frame(read.table(file="linear_regression_data.txt"))
@@ -562,17 +609,19 @@ mean(boot.obj$t[,1] + boot.obj$t[,2])
 
 
 
-\textbf{Problem 6A}
-```{r eval=FALSE, include=FALSE}
-# Not working
+\textbf{Problem 6}\
+\textbf{Problem 6A}\
+Obtain MCMC samples targeting p(theta|y)
+
+```{r}
 
 source("seir_mcmc_funs.R")
 
-
 # bivariate RWMH method (from exercise set 7)
 twoDRWMH <- function(lprob, # log-probability density kernel
-                     Sigma, # default proposal covariance = identity matrix
-                     theta1=c(2.2, 0.3), # default initial configuration
+                     sigma, # default proposal covariance = identity matrix
+                     theta1=c(3.18, 0.22), # default initial configuration
+                     tuning = 0,
                      n.iter=1000){
   # allocate output space
   out <- matrix(0.0,n.iter,2)
@@ -581,18 +630,22 @@ twoDRWMH <- function(lprob, # log-probability density kernel
   # store old lprob
   lp.old <- lprob(theta1)
   
+  # cholesky factorization of sigma for fast sampling
+  L <- t(chol(sigma * tuning)) #lower triangular factor
+
   # accept counter
   Nacc <- 0
   # main iteration loop
   for(i in 2:n.iter){
     # proposal
-    thetaStar <- out[(i-1),] + rmvnorm(1, theta1, Sigma)
-    
+    # thetaStar <- out[(i-1),] + rmvnorm(1, theta1, sigma)
+    thetaStar <- out[(i-1),] + L %*% rnorm(2)
+
     # evaluate
     lp.star <- lprob(thetaStar)
 
     # accept prob
-    alpha <- exp(min(0.0,lp.star/lp.old))
+    alpha <- exp(min(0.0, lp.star - lp.old))
     
     # accept/reject
     if(runif(1)<alpha && is.finite(alpha)){
@@ -612,48 +665,70 @@ twoDRWMH <- function(lprob, # log-probability density kernel
 
 # main run 
 
-sim <- twoDRWMH(lprob = seir.lp, Sigma = matrix(c(3e-4, 0, 0, 5e-7), 2, 2))
-# print(sim)
-colnames(sim) <- c("R","S")
-
-# plot(sim)
-
-#print(sim)
-
-#hist(sim[, 1], freq = FALSE, breaks = 60)
-#curve(dnorm(x), add=TRUE)
-#hist(sim[, 2])
-
-# bruk burn+1
-
-#sim.burned <- sim[501:length(sim[ ,1]), ]
-
-#ESS <- function(x){ return(as.numeric(coda::effectiveSize(x))) }
-#ESS(sim.burned)
+twoDRWMH.result <- twoDRWMH(lprob = seir.lp, sigma = matrix(c(3e-4, 0, 0, 5e-7), 2, 2), tuning = 2)
+twoDRWMH.result.burned <- twoDRWMH.result#[51:length(twoDRWMH.result[ ,1]), ]
 
 
+colnames(twoDRWMH.result.burned) <- c("R","S")
+colMeans(twoDRWMH.result.burned)
+
+hist(sim[, 1], freq = FALSE, breaks = 60)
+
+hist(sim[, 2], freq = FALSE, breaks = 60)
+
+# ESS <- function(x){ return(as.numeric(coda::effectiveSize(x))) }
+# ESS(twoDRWMH.result.burned)
 
 ```
 
 
 
+\textbr{Problem 6C}
+```{r}
+Nsim <- 365
+population <- 1000000
+allData <- matrix(nrow = Nsim, ncol = Nsim)
+
+rVals <- twoDRWMH.result.burned[ ,1]
+sVals <- twoDRWMH.result.burned[ ,2]
 
 
+indexes <- which(grepl("2021", newSim$dates))
+
+for (i in 1:Nsim) {
+  newSim <- seir_sim(R0max = rVals[i], soc_dist_Rfac = sVals[i])
+  allData[i ,] <-rowSums(cbind(newSim$ode$HH[indexes], newSim$ode$HC[indexes], newSim$ode$CC[indexes]))*population
+}
+
+dailyMeans <- colMeans(allData)
+dailyMins <- vector(length = Nsim)
+dailyMaxs <- vector(length = Nsim)
+dailyMedians <- vector(length = Nsim)
+dailyTop75Quantiles <- vector(length = Nsim)
+dailyBottom25Quantiles <- vector(length = Nsim)
+
+for (i in 1:365) {
+  dailyMins[i] <- min(allData[,i])
+  dailyMaxs[i] <- max(allData[,i])
+  dailyMedians[i] <- median(allData[,i])
+  dailyTop75Quantiles[i] <- quantile(allData[,i])[[4]]
+  dailyBottom25Quantiles[i] <- quantile(allData[,i])[[2]]
+}
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+plot(1, type="n", main = "Uncertainty in the daily required hospital beds in 2021" ,  xlab="Day", ylab="Quantity", xlim=c(0, 365), ylim=c(0, 450))
+axis(1, at=c(0,365), lab=c(0,365))
+lines(dailyMeans, col = "black", lty=2)
+lines(dailyMins, col = "green")
+lines(dailyMaxs, col = "blue")
+lines(dailyMedians, col = "red", lty=2)
+lines(dailyTop75Quantiles, col = "deeppink")
+lines(dailyBottom25Quantiles, col = "mediumorchid3")
+legend(-10, y=415, legend=c("Median", "Mean"),
+       col=c("red", "black"), lty=c(2, 2), cex=0.8, horiz=TRUE, box.lty=0)
+legend(-10, y=465, legend=c("0%", "25%", "75%", "100%"),
+       col=c("green", "mediumorchid3",  "deeppink", "blue"), lty=c(1, 1, 1, 1), cex=0.8, horiz=TRUE, box.lty=0)
+```
 
 
 

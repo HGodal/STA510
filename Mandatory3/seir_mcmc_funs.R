@@ -11,7 +11,6 @@ dltrunc_normal <- function(r,l,mu,sigma){
 #
 dRS <- function(r,s){
   if(r<0.0) return(0.0)
-  # print(c("r" = r, "s" = s, "matte" = dunif(s,min=0.5/r,max=0.8/r)))
   return(dltrunc_normal(r,1.8,2.2,1.5)*dunif(s,min=0.5/r,max=0.8/r))
 }
 
