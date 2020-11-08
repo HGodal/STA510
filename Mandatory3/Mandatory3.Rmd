@@ -11,6 +11,12 @@ library(coda)
 library(mvtnorm)
 ```
 
+
+Note: For most of the simulations regarding random walk, burn-in has been used, although it is not necessary for all types of random walk. As long as the effective sample size is sufficient, burn-in is OK to use, which is why it has been used in most of the simulations.
+
+The reason burn-in is used in some random walks is because the first part of the MCMC simulation is spent "locating" the high density region. The process of "locating" the high density is not of interest, and is therefore removed by burn-in.
+
+
 \textbf{Problem 1: Random number generation and Monte Carlo integration}\
 \textbf{Problem 1A}\
 Generate $n$ independent random variables from the distribution-density $p(x)$.
@@ -65,9 +71,6 @@ $n$ random independent variables has to be generated. This is achieved by using 
 
 Although a regular MH random walk would return random variable values following the density in the long run, the variables would loose their independence as the regular MH random walk generates new random values based on the previous random value, making them autocorrelated.
 
-The first part of the MCMC simulation is spent "locating" the high density region. As the task of the function is to generate values rather than "locating" the high density region, the values from the first part of the simulation can be discarded through burn-in.
-
-
 
 \textbf{Problem 1B}\
 Generate $n$ independent random variables from the distribution-density $p(x)$.
@@ -108,7 +111,7 @@ x.variables <- sqrt(-log(1-u))
 x.variables.burned <- x.variables[201:length(x.variables)]
 
 hist(x.variables.burned, freq = FALSE, main = 'Histogram of p(x)', xlab = 'Values of x', breaks = 50)
-curve(p, 0, 4, add = TRUE, n=Nsim, col="blue", lwd=2)
+curve(p, 0, 4, add = TRUE, n=Nsim, col="blue", lwd = 2)
 ```
 Because the x-values are generated directly from $p(x)$ through the inverse transform method, the random variables plotted into a histogram corresponds with the curve of the distribution density.
 
@@ -165,12 +168,14 @@ intiMC <- mean(g(x) / dnorm(x, 4, sqrt(1/40)))
 
 c("Acutal integral" = intiReal, "Sampled integral" = intiMC)
 
-plot(g, xlim = c(2, 6), n= 1000)
-curve(dnorm(x, 4, sqrt(1/40)), 2, 6, n=1000, add= TRUE, col = "blue ")
+plot(g, xlim = c(2, 6), n= 1000, lwd = 2)
+curve(dnorm(x, 4, sqrt(1/40)), 2, 6, n=1000, add= TRUE, col = "blue ", lty = 2, lwd = 2)
+legend("topleft", legend=c("g(x)", "f(x)"),
+       col=c("black", "blue"), lty = c(1, 2) , cex=0.8)
 ```
 The plot illustrates that $f(x)$ is proportional to $g(x)$, meaning that $f(x)$ can be used to generate x-values.
 
-The result from the definite integral of $g(x)$ and the value from the importance sampling are approximately the same, showing that the importance sampling was successful.
+The result from the definite integral of $g(x)$ and the value from the importance sampling are approximately the same, showing that the importance sampling was done properly.\
 
 
 \textbf{Problem 2: Smile-shaped target}\
@@ -185,16 +190,11 @@ By trial and error, a MALA algorithm is shown to produce results with a very flu
 ```{r}
 # Write from scratch!
 
-# If the jumps are "too large", then the chain sticks;
-# If the jumps are "too small", then the chain explores the parameter space very slower;
-# We want the jumps to be just right.
-# Of course the question is, what do we mean by "just right". Essentially, for a particular case they minimize the expected square jump distance. This is equivalent to minimizing the lag-1 autocorrelations. Recently, Sherlock and Roberts showed that the magic 0.234 holds for other target distributions:
-
 lp.log <- function(theta){
   -(theta[1]^2/2)-(theta[2] - theta[1]^2)^2/2 # log(g(theta))
 }
 
-Nsim <- 100000
+Nsim <- 50000
 
 twoDRWMH <- function(lprob, sigma, theta = c(0.0,0.0)){
   # allocate output space
@@ -233,7 +233,7 @@ twoDRWMH <- function(lprob, sigma, theta = c(0.0,0.0)){
   return(out)
 }
 
-twoDRWMH.result <- twoDRWMH(lprob = lp.log , sigma = 4.6)
+twoDRWMH.result <- twoDRWMH(lprob = lp.log , sigma = 4.3)
 twoDRWMH.result.burned <- twoDRWMH.result[501:length(twoDRWMH.result[ ,1]), ]
 colnames(twoDRWMH.result.burned) <- c("theta1","theta2")
 
@@ -241,18 +241,20 @@ plot(twoDRWMH.result.burned)
 
 ESS <- function(x){ return(as.numeric(coda::effectiveSize(x))) }
 ess <- ESS(twoDRWMH.result.burned)
-c("ESS Alpha" = ess[[1]], "ESS Beta" = ess[[2]])
+c("ESS Theta 1" = ess[[1]], "ESS Theta 2" = ess[[2]])
 
-
+hist(twoDRWMH.result.burned[,1], xlab="Theta 1", freq = FALSE, breaks = 60)
+curve(dnorm(x, mean = 0, sd = 1), col = "blue", add = TRUE, lwd = 2)
 ```
 
-Tuning the algorithm to make it as efficient as possible is done by tweaking the sigma used. The result should give an acceptance rate close to $0.234$, with the reason being that this acceptance rate minimizes the expected square jump distance, which can be seen as minimizing the autocorrelation.\
-By trial and error, $sigma = 4.6$ is used to make the algorithm the most efficient, and the acceptance rate close to $0.234$.\
+Tuning the algorithm to make it as efficient as possible is done by tweaking the sigma used, which defines how large the jumps are. If the jumps are "too large" the chain sticks, and if the jumps are "too small" the chain explores the parameter space very slowly. According to Sherlock and Roberts, the acceptance rate should be close to $0.234$, with the reason being that this acceptance rate minimizes the expected square jump distance, which can be seen as minimizing the autocorrelation.\
+By trial and error, $sigma = 4.3$ is used to make the algorithm the most efficient, and the acceptance rate close to $0.234$.\
 
-The simulation has a burn-in of the first 501 values, just to be sure that the initial configuration is lost.
+The histogram of theta 1 clearly illustrates that the theta1-marginal distribution of is still normally distributed with parameters $\mu = 0, \sigma^2 = 1$.\
 
--> Add reference to the document linked at https://stats.stackexchange.com/questions/12155/acceptance-rates-for-metropolis-hastings-with-uniform-candidate-distribution
+After the burn-in, the output shows that the effective sample size, both for alpha and beta, are over 1000.\
 
+-> Add reference to the document linked at https://www.cambridge.org/core/journals/journal-of-applied-probability/article/optimal-scaling-of-the-random-walk-metropolis-general-criteria-for-the-0234-acceptance-rule/52670E8E3E61E8D920DC98E79D3E2CE5
 
 
 \textbf{Problem 3: IMH for simple logistic regression problem}\
@@ -317,9 +319,9 @@ iMH <- function(target_prob, theta, sigma, tuning) {
 sigmas <- matrix(c(0.00653, -0.00058, -0.00058, 0.01689), 2, 2)
 thetas <- c(-0.102, 1.993)
 
-iMH.output <- iMH(logistic.lp, theta = thetas, sigma = sigmas, tuning = 0.6) # 0.6
+# Not necessarry to use burn-in, but a good rule of thumb
+iMH.output <- iMH(logistic.lp, theta = thetas, sigma = sigmas, tuning = 0.8)
 iMH.output.burned <- iMH.output[501:length(iMH.output[ ,1]), ]
-#Burning ikke nødvendig siden det er independence
 
 print(
   c(
@@ -331,8 +333,8 @@ print(
 # hist(iMH.output.burned[ ,1], breaks = 60, freq = FALSE)
 # curve(dnorm(x, mean(iMH.output.burned[,1]), sd(iMH.output.burned[,1])), add=TRUE)
 
-print(var(iMH.output.burned[ ,1]))
-print(var(iMH.output.burned[ ,2]))
+# print(var(iMH.output.burned[ ,1]))
+# print(var(iMH.output.burned[ ,2]))
 
 # hist(iMH.output.burned[ ,2], breaks = 60, freq = FALSE)
 # curve(dnorm(x, mean(iMH.output.burned[,2]), sd(iMH.output.burned[,2])), add=TRUE)
@@ -342,18 +344,22 @@ print(var(iMH.output.burned[ ,2]))
 
 # cov(iMH.output.burned)
 
-# ess <- ESS(iMH.output.burned)
-# c("ESS Theta 1" = ess[[1]], "ESS Theta 2" = ess[[2]])
+ess <- ESS(iMH.output.burned)
+c("ESS Alpha" = ess[[1]], "ESS Beta" = ess[[2]])
 ```
 
-As the function $logistics.lp$ returns the log-posterior kernel, taking $e^{logistics.lp}$ allows the independent MH sampler to operate with "normal" values instead of log-values.
+As the function $logistics.lp$ returns the log-posterior kernel, taking $e^{logistics.lp}$ allows the independent MH sampler to operate with "normal" values instead of log-values.\
 
-Say something about the acceptance rate and the tuning.
+Say something about the acceptance rate and the tuning.\
 
-The mean from the independent MH sampler is the same as the point estimate from the initial maximum likelihood-based classical analysis.
+The mean from the independent MH sampler is approximately the same as the point estimate from the initial maximum likelihood-based classical analysis.\
+
+The effective sample size of both alpha and beta are well over 1000.
+
 
 
 \textbf{Problem 3B}\
+Plot the median, 5% quantile, and the 95% quantile.\
 ```{r}
 
 mFunc <- function(x_i) {
@@ -370,93 +376,100 @@ stepInfo <- function(x_i) {
   return(c(med, quant01, quant05, quant95))
 }
 
-x <- seq(-5, 5, length.out = length(iMH.output.burned[ ,1]))
-plotmat <- matrix(0, length(x), 4)
-i <- 0
-for (val in x) {
-  i <- i+1
-  plotmat[i,] <- plotdist(val)
-}
-
-
-
-
 xSequence <- seq(-5, 5, length.out = length(iMH.output.burned[ ,1]))
-length(xSequence)
-
 plotInfo <- matrix(0, length(xSequence), 4)
+i <- 0
+
 
 for (i in 1:length(xSequence)) {
-  plotInfo[i, ] <- stepInfo(i)
+  plotInfo[i,] <- stepInfo(xSequence[i])
 }
 
-
-i <- 0
-for (val in x) {
-  i <- i+1
-  plotmat[i,] <- plotdist(val)
-}
-
-listMedian <- vector(length = length(newX))
-
-for (i in 1:length(newX)) {
-  listMedian[i] <- median(mFunc(newX[i]))
-}
-
-plot(x = newX, y = listMedian, xlim=c(-5, 5), type = "l")
+plot(xSequence, plotInfo[, 1], type="l", col="black")
+lines(xSequence, plotInfo[, 3], type="l", col="blue", lty=2)
+lines(xSequence, plotInfo[, 4], type="l", col="red", lty=2)
+legend("topleft", legend=c("95% Quantile","Median", "5% Quantile"),
+       col=c("red", "black", "blue"), lty=c(2, 1, 2), cex=0.8)
 ```
-
-\textbf{Problem 3B}\
-```{r}
-plotdist <- function (x) {
-  mstar <- exp(iMH.output.burned[,1] + iMH.output.burned[,2]*x) / (1 + exp(iMH.output.burned[,1] + iMH.output.burned[,2]*x))
-  med <- median(mstar)
-  quant05 <- quantile(mstar, 0.05)
-  quant95 <- quantile(mstar, 0.95)
-  # Used in problem 3c)
-  quant01 <- quantile(mstar, 0.01)
-  return(c(med, quant05, quant95, quant01))
-}
-
-x <- seq(-5, 5, length.out = length(iMH.output.burned[ ,1]))
-plotmat <- matrix(0, length(x), 4)
-i <- 0
-for (val in x) {
-  i <- i+1
-  plotmat[i,] <- plotdist(val)
-}
-
-plot(x, plotmat[, 1], type="l", col="red") #, xlim = c(0.6, 1), ylim = c(0.6, 0.9))
-lines(x, plotmat[, 2], type="l", col="blue", lty=2)
-lines(x, plotmat[, 3], type="l", col="orange", lty=3)
-legend("topleft", legend=c("Median", "05 quantile", "95 quantile"),
-       col=c("red", "blue", "orange"), lty=1:4, cex=0.8)
-```
-
-
 
 \textbf{Problem 3C}\
+Find x-values with 99% certainty that $m(x*) > 0.8$.\
 ```{r}
-lowestValue <- plotmat[, 4][plotmat[, 4] > 0.8][1]
+# First value larger than 0.8. 1% quantile
+lowestValue <- plotInfo[, 1][plotInfo[, 1] > 0.8][1]
 
 # First x-value of m-value with 99% probability of being larger than 0.8
-firstOccurence <- x[Position(function(x) x > 0.8, plotmat[, 4])]
-firstOccurence
+firstOccurence <- xSequence[Position(function(x) x > 0.8, plotInfo[, 1])]
 
-firstOccurence.rounded <- round(firstOccurence, 2)
+firstOccurence.rounded <- round(firstOccurence, 3)
 
-plot(x, plotmat[, 4], type="l", col="black") #, xlim = c(0.6, 1), ylim = c(0.6, 0.9))
+print(c("Smallest x*-value" = firstOccurence))
+
+plot(xSequence, plotInfo[, 1], type="l", col="black")
 abline(v = firstOccurence, col="red", lty = 3)
-abline(h = lowestValue, col="red", lty = 3)
+abline(h = lowestValue, col="blue", lty = 3)
 axis(1, at=firstOccurence.rounded, labels=firstOccurence.rounded)
-legend("topleft", legend=c("0.01 Quantile"),
-       col=c("black"), lty = 1 , cex=0.8)
+legend("topleft", legend=c("0.01 Quantile", "Lowest x*-value", "m(x*) > 0.8"),
+       col=c("black", "red", "blue"), lty = c(1, 3, 3) , cex=0.8)
 ```
 
+As the plot from problem 3b illustrates, $m(x*)$ is a strictly increasing function. This means that if $a < b$, $m(a) < m(b)$. The 1% quantile provides x-values with 99% certainty that $m(x*) > 0.8$. This means that there is a lower $x*$, and all $x*$-values above satisfy the condition $m(x*) > 0.8$.\
 
+This means that for any $x*$-values larger than or equal to `r firstOccurence.rounded`, the condition $m(x*) > 0.8$ with a certainty of 99% is fulfilled.\
+
+
+\textbf{Problem 4: Gibbs sampler for simple linear regression model}
 \textbf{Problem 4A}\
+Find the distribution of $\alpha | \beta, \tau, \boldsymbol{y}$ and $\beta | \alpha, \tau, \boldsymbol{y}$\
+
+Given that the joint posterior of $\boldsymbol{\theta} = (\alpha, \beta, \tau)$ has the log-density kernel:\
+
+$$
+\log g(\boldsymbol{\theta}) = \frac{n}{2} \log{(\tau)} - \frac{\tau}{2} \sum_{i=1}^{n}(y_i-\alpha-\beta x_i)^2-\frac{\alpha^2+\beta^2}{200}-\tau
+$$
+
+Finding the conditional $\alpha$ and $\beta$ distributions is/are done by collecting all parts of the equation not containing the parameter in focus into a constant and (in this case) writing the expressions in the form $a+bx+cx^2 \Rightarrow x \sim N \left (- \frac{b}{2c}, - \frac{1}{2c} \right)$.\
+
+By first expanding the squared sum and factorizing each part of the expression, the expression becomes:\
+
+For $\alpha$:\
+$$
+\alpha | \beta, \tau, \boldsymbol{y} =\alpha \sum_{i=1}^{n}(y_i \tau) + \alpha^2  \sum_{i=1}^{n}(-\frac{\tau}{2}) + \alpha \sum_{i=1}^{n}(-\beta x_i \tau) + \alpha^2(-\frac{1}{200}) + C
+$$
+$$
+\alpha | \beta, \tau, \boldsymbol{y} = C + \alpha(\tau \sum_{i=1}^{n}(y_i-\beta x_i)) + \alpha^2(-\frac{\tau n}{2}-\frac{1}{200})
+$$
+
+$$
+\alpha | \beta, \tau, \boldsymbol{y} \sim N\left ( \frac{\tau \sum_{i=1}^{n}(y_i-\beta x_i)}{\tau n + 1/100} , \frac{1}{\tau n + 1/100} \right)
+$$
+
+For $\beta$:\
+
+$$
+\beta | \alpha, \tau, \boldsymbol{y} =\beta \sum_{i=1}^{n}(y_i x_i \tau) + \beta \sum_{i=1}^{n}(-\alpha x_i \tau) + \beta^2  \sum_{i=1}^{n}(-\frac{\tau}{2}x_i^2) + \beta^2(-\frac{1}{200}) + C
+$$
+
+
+$$
+\beta | \alpha, \tau, \boldsymbol{y} = C + \beta(\tau \sum_{i=1}^{n}(y_i x_i-\alpha x_i)) + \beta^2(-\frac{\tau }{2} \sum_{i=1}^{n}(x_i^2)-\frac{1}{200})
+$$
+
+$$
+\beta | \alpha, \tau, \boldsymbol{y} \sim N\left ( \frac{\tau \sum_{i=1}^{n}(y_i x_i-\alpha x_i)}{\tau \sum_{i=1}^{n}(x_i^2) + \frac{1}{100}} , \frac{1}{\tau \sum_{i=1}^{n}(x_i^2) + \frac{1}{100}} \right)
+$$
+
+Also, $\tau | \alpha, \beta, \boldsymbol{y}$ is given as:
+
+$$
+\tau | \alpha, \beta, \boldsymbol{y} \sim Gamma\left(\frac{n}{2}+1, \frac{1}{\frac{1}{2}\sum_{i=1}^{n}(y_i-\alpha-\beta x_i)^2+1}\right)
+$$
+
+
 \textbf{Problem 4B}\
+Gibbs sampler with 3 blocks targeting $p(\boldsymbol{\theta|y})$\
 ```{r}
+
 df <- data.frame(read.table(file="linear_regression_data.txt"))
 x <- df$x
 y <- df$y
@@ -473,20 +486,20 @@ res[1, ] <- theta
 k <- 2 # store counter
 
 for(i in 1:n){
-    # update first block
+    # update first block (alpha)
     theta[1] <- rnorm(1, theta[3]*sum(y-theta[2]*x) / (theta[3]*length(y) + 1/100), 1 / (theta[3]*length(y) + 1/100))
     
     # store state
     res[k, ] <- theta
     k <- k+1
     
-    # update second block
+    # update second block (beta)
     theta[2] <- rnorm(1, theta[3]*sum(x*y-x*theta[1]) / (theta[3]*sum(x^2) + 1/100), 1 / (theta[3]*sum(x^2) + 1/100))
     # store state
     res[k, ] <- theta
     k <- k+1
     
-     # update third block
+     # update third block (tau)
     theta[3] <- rgamma(1, shape = length(y)/2 + 1, scale = 1/(1/2 * sum((y-theta[1]-theta[2]*x)^2) + 1))
     # store state
     res[k, ] <- theta
@@ -512,7 +525,7 @@ c("ESS Theta 3" = ess[[3]])
 
 
 \textbf{Problem 4C}\
-```{r}
+```{r eval=FALSE, include=FALSE}
 
 lm.out <- lm(y~x,data=df)
 c("Alpha" = lm.out$coefficients[[1]], "Beta" = lm.out$coefficients[[2]])
@@ -522,7 +535,7 @@ c("Alpha" = lm.out$coefficients[[1]], "Beta" = lm.out$coefficients[[2]])
 ```
 
 \textbf{Problem 4D}\
-```{r}
+```{r eval=FALSE, include=FALSE}
 
 n <- 100000 # number of Gibbs iterations
 theta <- c(1, -1.2, 1.0) # variable used as state throughout
@@ -566,13 +579,13 @@ c("ESS Theta 2" = ess[[2]])
 ```
 \textbf{Problem 4E}\
 :D
-```{r}
+```{r eval=FALSE, include=FALSE}
 
 ```
 
 
 \textbf{Problem 5A}\
-```{r}
+```{r eval=FALSE, include=FALSE}
 
 df <- data.frame(read.table(file="linear_regression_data.txt"))
 x <- df$x
@@ -613,7 +626,7 @@ mean(boot.obj$t[,1] + boot.obj$t[,2])
 \textbf{Problem 6A}\
 Obtain MCMC samples targeting p(theta|y)
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 
 source("seir_mcmc_funs.R")
 
@@ -672,9 +685,9 @@ twoDRWMH.result.burned <- twoDRWMH.result#[51:length(twoDRWMH.result[ ,1]), ]
 colnames(twoDRWMH.result.burned) <- c("R","S")
 colMeans(twoDRWMH.result.burned)
 
-hist(sim[, 1], freq = FALSE, breaks = 60)
+hist(twoDRWMH.result.burned[, 1], freq = FALSE, breaks = 60)
 
-hist(sim[, 2], freq = FALSE, breaks = 60)
+hist(twoDRWMH.result.burned[, 2], freq = FALSE, breaks = 60)
 
 # ESS <- function(x){ return(as.numeric(coda::effectiveSize(x))) }
 # ESS(twoDRWMH.result.burned)
@@ -683,8 +696,8 @@ hist(sim[, 2], freq = FALSE, breaks = 60)
 
 
 
-\textbr{Problem 6C}
-```{r}
+\textbf{Problem 6C}
+```{r eval=FALSE, include=FALSE}
 Nsim <- 365
 population <- 1000000
 allData <- matrix(nrow = Nsim, ncol = Nsim)
