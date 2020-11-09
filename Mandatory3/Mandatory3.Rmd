@@ -406,11 +406,11 @@ firstOccurence.rounded <- round(firstOccurence, 3)
 print(c("Smallest x*-value" = firstOccurence))
 
 plot(xSequence, plotInfo[, 1], type="l", col="black")
-abline(v = firstOccurence, col="red", lty = 3)
-abline(h = lowestValue, col="blue", lty = 3)
+abline(v = firstOccurence, col="red", lty = 2, lwd = 2)
+abline(h = lowestValue, col="blue", lty = 2, lwd = 2)
 axis(1, at=firstOccurence.rounded, labels=firstOccurence.rounded)
 legend("topleft", legend=c("0.01 Quantile", "Lowest x*-value", "m(x*) > 0.8"),
-       col=c("black", "red", "blue"), lty = c(1, 3, 3) , cex=0.8)
+       col=c("black", "red", "blue"), lty = c(1, 2, 2) , cex=0.8)
 ```
 
 As the plot from problem 3b illustrates, $m(x*)$ is a strictly increasing function. This means that if $a < b$, $m(a) < m(b)$. The 1% quantile provides x-values with 99% certainty that $m(x*) > 0.8$. This means that there is a lower $x*$, and all $x*$-values above satisfy the condition $m(x*) > 0.8$.\
@@ -466,8 +466,8 @@ $$
 $$
 
 
-\textbf{Problem 4B}\
-Gibbs sampler with 3 blocks targeting $p(\boldsymbol{\theta|y})$\
+\textbf{Problem 4B + 4C}\
+Gibbs sampler with 3 blocks targeting $p(\boldsymbol{\theta|y})$.\
 ```{r}
 
 df <- data.frame(read.table(file="linear_regression_data.txt"))
@@ -479,104 +479,158 @@ y <- df$y
 # Gibbsampler for bivariate normal target
 #
 
-n <- 100000 # number of Gibbs iterations
-theta <- c(1, 1, 1) # variable used as state throughout
-res <- matrix(0.0, 3*n+1, 3) # results, note stores twice per iteration
-res[1, ] <- theta
-k <- 2 # store counter
-
-for(i in 1:n){
-    # update first block (alpha)
-    theta[1] <- rnorm(1, theta[3]*sum(y-theta[2]*x) / (theta[3]*length(y) + 1/100), 1 / (theta[3]*length(y) + 1/100))
-    
-    # store state
-    res[k, ] <- theta
-    k <- k+1
-    
-    # update second block (beta)
-    theta[2] <- rnorm(1, theta[3]*sum(x*y-x*theta[1]) / (theta[3]*sum(x^2) + 1/100), 1 / (theta[3]*sum(x^2) + 1/100))
-    # store state
-    res[k, ] <- theta
-    k <- k+1
-    
-     # update third block (tau)
-    theta[3] <- rgamma(1, shape = length(y)/2 + 1, scale = 1/(1/2 * sum((y-theta[1]-theta[2]*x)^2) + 1))
-    # store state
-    res[k, ] <- theta
-    k <- k+1
+gibbs3b <- function() {
+  n <- 10000 # number of Gibbs iterations
+  theta <- c(1, 1, 1) # variable used as state throughout
+  res <- matrix(0.0, 3*n + 1, 3) # results, note stores twice per iteration
+  res[1, ] <- theta
+  k <- 2 # store counter
+  
+  for(i in 1:n){
+      # update first block (alpha)
+      theta[1] <- rnorm(1, theta[3]*sum(y-theta[2]*x) / (theta[3]*length(y) + 1/100),
+                        1 / (theta[3]*length(y) + 1/100))
+      
+      # store state
+      res[k, ] <- theta
+      k <- k+1
+      
+      # update second block (beta)
+      theta[2] <- rnorm(1, theta[3]*sum(x*y-x*theta[1]) / (theta[3]*sum(x^2) + 1/100),
+                        1 / (theta[3]*sum(x^2) + 1/100))
+      # store state
+      res[k, ] <- theta
+      k <- k+1
+      
+       # update third block (tau)
+      theta[3] <- rgamma(1, shape = length(y)/2 + 1,
+                         scale = 1/(1/2 * sum((y-theta[1]-theta[2]*x)^2) + 1))
+      # store state
+      res[k, ] <- theta
+      k <- k+1
+  }
+  res
 }
-
-res.burned <- res[501:length(res[ ,1]), ]
-
-# cov(res.burned)
-round(colMeans(res.burned), 5)
-
-# hist(res.burned[,1], breaks = 100, freq = FALSE)
-# hist(res.burned[,2], breaks = 100, freq = FALSE)
-# hist(res.burned[,3], breaks = 100, freq = FALSE)
-
-plot(res.burned[,1], res.burned[,2], type="l")
-
-ess <- ESS(res.burned)
-c("ESS Theta 3" = ess[[3]])
-
 ```
-
 
 
 \textbf{Problem 4C}\
-```{r eval=FALSE, include=FALSE}
+Use the Gibbs sampler with 3 blocks.\
+```{r}
+gibbs3 <- gibbs3b()
 
+
+gibbs3.burned <- gibbs3[501:length(gibbs3[ ,1]), ]
+colnames(gibbs3.burned) <-  c("Alpha", "Beta", "Tau")
+
+round(colMeans(gibbs3.burned), 4)
+
+plot(gibbs3.burned[,1], gibbs3.burned[,2], type="l", xlab = "Alpha", ylab = "Beta")
+# plot(gibbs3.burned[,1], gibbs3.burned[,3], type="l", xlab = "Alpha", ylab = "Tau")
+# plot(gibbs3.burned[,2], gibbs3.burned[,3], type="l", xlab = "Beta", ylab = "Tau")
+
+ess <- ESS(gibbs3.burned)
+c("ESS Alpha" = ess[[1]], "ESS Beta" = ess[[2]], "ESS Tau" = ess[[3]])
+
+# Classical linear regression
 lm.out <- lm(y~x,data=df)
 c("Alpha" = lm.out$coefficients[[1]], "Beta" = lm.out$coefficients[[2]])
-
-# Se etter a3chain for geweke
-
 ```
+
+After burn-in, the effective sample size of all $\alpha$, $\beta$ and $\tau$ are above the required size of 1000.\
+
+It can be seen from the plots that $\alpha$ and $\beta$ has a correlation of `r cor(gibbs3.burned[,1], gibbs3.burned[,2])`, while the other plots show a correlation close to zero. Thus, $\alpha$ and $\beta$ are dependent on each other, and the Gibbs sampler would be improved by combining $\alpha$ and $\beta$, and reducing the number of blocks from three to two.\
+
+The last output can be used to compare the posterior means with a classical linear regression, which gives approximately the same $\alpha$- and $\beta$-values.\
+
 
 \textbf{Problem 4D}\
-```{r eval=FALSE, include=FALSE}
+Gibbs sampler with 2 blocks.\
 
-n <- 100000 # number of Gibbs iterations
-theta <- c(1, -1.2, 1.0) # variable used as state throughout
-res <- matrix(0.0, 2*n+1, 3) # results, note stores twice per iteration
-res[1, ] <- theta
-k <- 2 # store counter
+From the text, we have that $(\alpha,\beta)|\tau,\boldsymbol{y}\sim N(-\boldsymbol{c}^{-1}\boldsymbol{b}, -\boldsymbol{c}^{-1})$, where:
 
+$$
+\boldsymbol{c} = 
+\begin{pmatrix}
+ -n\tau & 0.01 \\ 
+ -\tau\sum_{i=1}^{n}x_i & -\tau\sum_{i=1}^{n}x_i^2-0.01 
+\end{pmatrix}
+$$
 
-for(i in 1:n){
-  cVal = matrix(c(-length(y)*theta[2]-0.01, -theta[2]*sum(x), -theta[2]*sum(x), -theta[2]*sum(x^2)-0.01), 2, 2)
-  bVal = c(theta[2]*sum(y), theta[2]*sum(y*x))
+$$
+\boldsymbol{b} = 
+\begin{pmatrix}
+ \tau\sum_{i=1}^{n}y_i \\ 
+ \tau\sum_{i=1}^{n}y_i x_i
+\end{pmatrix}
+$$
+
+Using $(\alpha, \beta)|\tau,\boldsymbol{y}$ and $\tau|\alpha, \beta,\boldsymbol{y}$ gives the following Gibbs sampler with two blocks:\
+
+```{r}
+
+gibbs2b <- function() {
+  n <- 10000 # number of Gibbs iterations
+  theta <- c(1, -1.2, 1.0) # variable used as state throughout
+  res <- matrix(0.0, 2*n+1, 3) # results, note stores twice per iteration
+  res[1, ] <- theta
+  k <- 2 # store counter
   
-  # update first block
-  theta[1:2] <- rmvnorm(1, -solve(cVal) %*% bVal, -solve(cVal))
-
-  # store state
-  res[k,] <- theta
-  k <- k+1
+  # Calculating some constants for performance:
+  sumx <- sum(x)
+  # Sum of x^2
+  sumx2 <- sum(x^2)
+  # Sum of y
+  sumy <- sum(y)
+  # Sum of xy
+  sumyx <- sum(y*x)
+  # Length of both y (or x)
+  dataLength <- length(y)
   
   
-  # update the third block
-  theta[2] <- rgamma(1, shape = length(y)/2 + 1, scale = 1/(1/2 * sum((y-rnorm(1, 0, 10) - rnorm(1, 0, 10)*x)^2) + 1))
-  #store state
-  res[k,] <- theta
-  k <- k+1
+  for(i in 1:n){
+    cVal = matrix(c(-dataLength*theta[3]-0.01, -theta[3]*sumx,
+                    -theta[3]*sumx, -theta[3]*sumx2-0.01), 2, 2)
+    bVal = c(theta[3]*sumy, theta[3]*sumyx)
+    
+    # update first block
+    theta[1:2] <- rmvnorm(1, -solve(cVal) %*% bVal,
+                          -solve(cVal))
+  
+    # store state
+    res[k,] <- theta
+    k <- k+1
+    
+    
+    # update the second block
+    theta[3] <- rgamma(1, shape = dataLength/2 + 1,
+                       scale = 1/(1/2 * sum((y-theta[1] - theta[2]*x)^2) + 1))
+    #store state
+    res[k,] <- theta
+    k <- k+1
+  }
+  res
 }
 
-res.burned <- res[501:length(res[ ,1]), ]
+gibbs2 <- gibbs2b()
 
+gibbs2.burned <- gibbs2[501:length(gibbs2[ ,1]), ]
+colnames(gibbs2.burned) <-  c("Alpha", "Beta", "Tau")
 
-cov(res.burned)
-round(colMeans(res.burned), 5)
+round(colMeans(gibbs2.burned), 4)
 
-hist(res.burned[,1], breaks = 100, freq = FALSE)
-hist(res.burned[,2], breaks = 100, freq = FALSE)
+# plot(gibbs2.burned[,1], gibbs2.burned[,2], type="l", xlab = "Alpha", ylab = "Beta")
+# plot(gibbs2.burned[,1], gibbs2.burned[,3], type="l", xlab = "Alpha", ylab = "Tau")
+# plot(gibbs2.burned[,2], gibbs2.burned[,3], type="l", xlab = "Beta", ylab = "Tau")
 
-plot(res.burned[,1], res.burned[,2])
-
-ess <- ESS(res.burned)
-c("ESS Theta 2" = ess[[2]])
+ess <- ESS(gibbs2.burned)
+c("ESS Alpha" = ess[[1]], "ESS Beta" = ess[[2]], "ESS Tau" = ess[[3]])
 ```
+
+The new effective sample sizes clearly shows that fewer simulations are needed to get the same ESS as in problem 3C, meaning that the performance of the Gibbs sampling procedure has been improved.\
+
+As in problem 3C, the mean of $\alpha$, $\beta$ and $\tau$ are still the same, meaning that the sampling still works as intended.
+
 \textbf{Problem 4E}\
 :D
 ```{r eval=FALSE, include=FALSE}
