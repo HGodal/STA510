@@ -2,6 +2,8 @@
 title: "Mandatory 3"
 author: "Håvard Godal, 245609"
 date: \today
+header-includes:
+  - \usepackage[nodayofweek,level]{datetime}
 output: pdf_document
 ---
 
@@ -67,7 +69,7 @@ hist(IndRandVariables.burned, probability = TRUE, breaks = 50, xlim = c(-3, 3),
      main = "Variables from p(x)", xlab = "Values of x")
 curve(p, add = TRUE, -3, 3, col = "blue", lwd = 2)
 ```
-$n$ random independent variables has to be generated. This is achieved by using the independent MH sampler, as finding the CDF and using the inverse transform method proves to be difficult for the given density distribution. The main difference between an independent MH sampler and a regular MH random walk is that the independent MH sampler preserves the independence of each random variable.
+\ $n$ random independent variables has to be generated. This is achieved by using the independent MH sampler, as finding the CDF and using the inverse transform method proves to be difficult for the given density distribution. The main difference between an independent MH sampler and a regular MH random walk is that the independent MH sampler preserves the independence of each random variable.
 
 Although a regular MH random walk would return random variable values following the density in the long run, the variables would loose their independence as the regular MH random walk generates new random values based on the previous random value, making them autocorrelated.
 
@@ -113,7 +115,7 @@ x.variables.burned <- x.variables[201:length(x.variables)]
 hist(x.variables.burned, freq = FALSE, main = 'Histogram of p(x)', xlab = 'Values of x', breaks = 50)
 curve(p, 0, 4, add = TRUE, n=Nsim, col="blue", lwd = 2)
 ```
-Because the x-values are generated directly from $p(x)$ through the inverse transform method, the random variables plotted into a histogram corresponds with the curve of the distribution density.
+\ Because the x-values are generated directly from $p(x)$ through the inverse transform method, the random variables plotted into a histogram corresponds with the curve of the distribution density.
 
 
 
@@ -177,7 +179,7 @@ The plot illustrates that $f(x)$ is proportional to $g(x)$, meaning that $f(x)$ 
 
 The result from the definite integral of $g(x)$ and the value from the importance sampling are approximately the same, showing that the importance sampling was done properly.\
 
-
+\newpage
 \textbf{Problem 2: Smile-shaped target}\
 \textbf{Problem 2A}\
 Use a MCMC algorithm to obtain MCMC samples.\
@@ -257,6 +259,7 @@ After the burn-in, the output shows that the effective sample size, both for alp
 -> Add reference to the document linked at https://www.cambridge.org/core/journals/journal-of-applied-probability/article/optimal-scaling-of-the-random-walk-metropolis-general-criteria-for-the-0234-acceptance-rule/52670E8E3E61E8D920DC98E79D3E2CE5
 
 
+\newpage
 \textbf{Problem 3: IMH for simple logistic regression problem}\
 \textbf{Problem 3A}\
 Use an independent MH sampler.
@@ -418,6 +421,7 @@ As the plot from problem 3b illustrates, $m(x*)$ is a strictly increasing functi
 This means that for any $x*$-values larger than or equal to `r firstOccurence.rounded`, the condition $m(x*) > 0.8$ with a certainty of 99% is fulfilled.\
 
 
+\newpage
 \textbf{Problem 4: Gibbs sampler for simple linear regression model}
 \textbf{Problem 4A}\
 Find the distribution of $\alpha | \beta, \tau, \boldsymbol{y}$ and $\beta | \alpha, \tau, \boldsymbol{y}$\
@@ -572,7 +576,7 @@ Using $(\alpha, \beta)|\tau,\boldsymbol{y}$ and $\tau|\alpha, \beta,\boldsymbol{
 gibbs2b <- function() {
   n <- 10000 # number of Gibbs iterations
   theta <- c(1, -1.2, 1.0) # variable used as state throughout
-  res <- matrix(0.0, 2*n+1, 3) # results, note stores twice per iteration
+  res <- matrix(0.0, 2*n + 1, 3) # results, note stores twice per iteration
   res[1, ] <- theta
   k <- 2 # store counter
   
@@ -587,20 +591,17 @@ gibbs2b <- function() {
   # Length of both y (or x)
   dataLength <- length(y)
   
-  
   for(i in 1:n){
     cVal = matrix(c(-dataLength*theta[3]-0.01, -theta[3]*sumx,
                     -theta[3]*sumx, -theta[3]*sumx2-0.01), 2, 2)
     bVal = c(theta[3]*sumy, theta[3]*sumyx)
     
     # update first block
-    theta[1:2] <- rmvnorm(1, -solve(cVal) %*% bVal,
-                          -solve(cVal))
+    theta[1:2] <- rmvnorm(1, -solve(cVal) %*% bVal, -solve(cVal))
   
     # store state
     res[k,] <- theta
     k <- k+1
-    
     
     # update the second block
     theta[3] <- rgamma(1, shape = dataLength/2 + 1,
@@ -623,36 +624,65 @@ round(colMeans(gibbs2.burned), 4)
 # plot(gibbs2.burned[,1], gibbs2.burned[,3], type="l", xlab = "Alpha", ylab = "Tau")
 # plot(gibbs2.burned[,2], gibbs2.burned[,3], type="l", xlab = "Beta", ylab = "Tau")
 
+# hist(gibbs2.burned[,1])
+# hist(gibbs2.burned[,2])
+
+# plot(gibbs2.burned, type = "l")
+
 ess <- ESS(gibbs2.burned)
 c("ESS Alpha" = ess[[1]], "ESS Beta" = ess[[2]], "ESS Tau" = ess[[3]])
 ```
 
 The new effective sample sizes clearly shows that fewer simulations are needed to get the same ESS as in problem 3C, meaning that the performance of the Gibbs sampling procedure has been improved.\
 
+Having fewer blocks and improving independence between the blocks gives better samples, which is clearly showed in the solution of the problem.\
+
 As in problem 3C, the mean of $\alpha$, $\beta$ and $\tau$ are still the same, meaning that the sampling still works as intended.
 
 \textbf{Problem 4E}\
-:D
-```{r eval=FALSE, include=FALSE}
+Verify that $\alpha + \beta = 0$\
+
+This can be seen as a hypothesis test, using the 15- and 75-percentile on both Gibbs samplers.
+```{r}
+
+alpha_beta3 <- gibbs3.burned[, 1] + gibbs3.burned[, 2]
+hist(alpha_beta3, breaks = 60)
+abline(v = quantile(alpha_beta3, 0.975), lwd="2")
+abline(v = quantile(alpha_beta3, 1-0.975), lwd="2")
+
+alpha_beta2 <- gibbs2.burned[, 1] + gibbs2.burned[, 2]
+hist(alpha_beta2, breaks = 60)
+abline(v = quantile(alpha_beta2, 0.975), lwd="2")
+abline(v = quantile(alpha_beta2, 1-0.975), lwd="2")
 
 ```
 
+From the Gibbs sampler with three blocks shows that $\alpha + \beta$ equals zero falls outside the quantile limits, and the  hypothesis can be rejected.\
 
+On the other hand, the Gibbs sampler with two blocks shows that $\alpha + \beta$ equals zero falls inside the quantile limits. This means that $\alpha + \beta = 0$ might hold true. Thus, the hypothesis can not be rejected in this case.\
+
+
+\newpage
+\textbf{Problem 5: Bootstrapping}\
 \textbf{Problem 5A}\
-```{r eval=FALSE, include=FALSE}
+Check if the claims given in the problem holds true.\
 
-df <- data.frame(read.table(file="linear_regression_data.txt"))
+Claim 1: $\sigma = \frac{1}{\sqrt{\tau}}$ is strictly smaller than 1.0.\
+Claim 2: $\alpha$ is equal to 0.\
+Claim 3: $\alpha + \beta$ is equal to 0.\
+
+```{r}
+
+df <- data.frame(read.table(file = "linear_regression_data.txt"))
 x <- df$x
 y <- df$y
 
 library(boot)
-sdestfunc <- function(data,i) {
-  lm(data[i, 1]~data[i, 2],data = df)$coefficients
+sdestfunc <- function(data, i) {
+  lm(data[i, 1] ~ data[i, 2], data = df)$coefficients
 }   
 
-boot.obj <- boot(data=df, statistic = sdestfunc, R=5000)
-boot.obj
-boot.ci(boot.obj,type=c("norm","basic","perc","bca"))
+boot.obj <- boot(data = df, statistic = sdestfunc, R = 5000)
 
 # plot(boot.obj)
 
@@ -662,150 +692,242 @@ sigma <- 1/sqrt(
 )
 
 # Claim 1
-max(sigma)
+hist(sigma, breaks = 60)
+abline(v = 1, lwd = 2, col = "blue")
 
 # Claim 2
-mean(boot.obj$t[,1])
-var(boot.obj$t[,1])
+hist(boot.obj$t[ ,1], breaks = 60)
+abline(v = quantile(boot.obj$t[ ,1], 0.975), lwd = 2, col = "blue")
+abline(v = quantile(boot.obj$t[ ,1], 1 - 0.975), lwd = 2, col = "blue")
 
 # Claim 3
-mean(boot.obj$t[,1] + boot.obj$t[,2])
-
-# hist(a, breaks=50)
+hist(boot.obj$t[ ,1] + boot.obj$t[ ,2], breaks = 60)
+abline(v = quantile(boot.obj$t[ ,1] + boot.obj$t[ ,2], 0.975), lwd = 2, col = "blue")
+abline(v = quantile(boot.obj$t[ ,1] + boot.obj$t[ ,2], 1-0.975), lwd = 2, col = "blue")
 ```
 
+The first histogram clearly shows that $\sigma$ is not strictly smaller than 1.0. Because of this, claim 1 is rejected.\
+
+Claim 2 is also rejected as the second histogram shows that $\alpha = 0$ falls outside the 95% confidence interval.\
+
+As $\alpha + \beta = 0$ falls inside the 95% confidence interval, claim 3 can not be rejected.
 
 
-\textbf{Problem 6}\
+\newpage
+\textbf{Problem 6: Bayesian inference for the SEIR model}\
 \textbf{Problem 6A}\
-Obtain MCMC samples targeting p(theta|y)
+Obtain MCMC samples targeting $p(\theta|\boldsymbol{y})$\
 
-```{r eval=FALSE, include=FALSE}
+Using a bivariate RWMH does not yield effective sample sizes of R and S of 200 or more. To fix this, an independent RWMH is implemented. Because the independent random walk returns independent values of R and S, the effective sample size will increase.\
+
+```{r}
 
 source("seir_mcmc_funs.R")
 
-# bivariate RWMH method (from exercise set 7)
-twoDRWMH <- function(lprob, # log-probability density kernel
-                     sigma, # default proposal covariance = identity matrix
-                     theta1=c(3.18, 0.22), # default initial configuration
-                     tuning = 0,
-                     n.iter=1000){
-  # allocate output space
-  out <- matrix(0.0,n.iter,2)
-  out[1,] <- theta1
-  
-  # store old lprob
-  lp.old <- lprob(theta1)
-  
-  # cholesky factorization of sigma for fast sampling
-  L <- t(chol(sigma * tuning)) #lower triangular factor
+Nsim <- 1000
 
-  # accept counter
+# Independent sampler
+ind.2DRW <- function(l_target_prob, theta, sigma, tuning){
+  # allocate memory
+  res <- matrix(0, Nsim, 2)
+  res[1, ] <- theta
+   # old importance weight
+  wt.old <- l_target_prob(theta) - dmvnorm(theta, theta, sigma, log=TRUE)
   Nacc <- 0
-  # main iteration loop
-  for(i in 2:n.iter){
-    # proposal
-    # thetaStar <- out[(i-1),] + rmvnorm(1, theta1, sigma)
-    thetaStar <- out[(i-1),] + L %*% rnorm(2)
-
-    # evaluate
-    lp.star <- lprob(thetaStar)
-
-    # accept prob
-    alpha <- exp(min(0.0, lp.star - lp.old))
-    
+  for (i in 2:Nsim){
+    # proposal (note, independent of past)
+    # Sample theta from multivariate normal with scaled sigma
+    thetaStar <- rmvnorm(1, theta, tuning*sigma)
+    # new importance weight
+    wt.star <- l_target_prob(thetaStar) - dmvnorm(thetaStar, theta, sigma, log=TRUE)
+    # accept probability
+    alpha <- exp(min(0.0, wt.star - wt.old))
     # accept/reject
     if(runif(1)<alpha && is.finite(alpha)){
-      # accept
-      out[i,] <- thetaStar
-      lp.old <- lp.star
+      res[i,] <- thetaStar
+      wt.old <- wt.star
       Nacc <- Nacc+1
     } else {
-      out[i,] <- out[(i-1),]      
+      res[i,] <- res[(i-1),]
     }
-  } # main iteration loop
+  }
+  print(paste0("accept rate : ",Nacc/Nsim))
+  return(res)
+}
+
+
+ind.result <- ind.2DRW(seir.lp,
+             theta=c(3.019, 0.167),
+             sigma=matrix(c(0.0003,0,0,0.0000005),2,2),
+             tuning=0.8)
+
+plot(ind.result[,1], ind.result[,2], type="l", main="2DIRW", xlab="R", ylab="S")
+ESS(ind.result[,1])
+ESS(ind.result[,2])
+
+```
+
+The effective sample size for R and S are both over the required 200.\
+# Omformulere?
+The plot shows that the sampler explores the distribution quite well, avoiding the chain to stick, while also avoiding exploring the parameter space too slowly.
+
+
+\textbf{Problem 6B}
+Compare the posterior distribution and the prior distribution.\
+
+```{r}
+
+Nsim <- 1000
+
+# inverse transform method (from mandatory 2)
+randNum <- function(l, mu, sigma) {
+    qnorm(
+      pnorm(l, mu, sigma) + runif(Nsim, 0, 1)*(1 - pnorm(l, mu, sigma)),
+          mu, sigma
+      )
+}
+
+# generate random R- and S-variables (from mandatory 2)
+prior <- function() {
+  rNum <- randNum(l = 1.8, mu = 2.2, sigma = 1.5)
+  sNum <- runif(Nsim, 0.5/rNum, 0.8/rNum)
+  cbind(rNum, sNum)
+}
+
+prior.values <- prior()
+
+plot(prior.values[ ,1], prior.values[ ,2], 
+     xlab = "R", ylab = "S",
+     pch = 21, bg = "blue")
+points(ind.result[ ,1], ind.result[ ,2], pch = 21, bg = "red", cex = 1.3)
+legend("topright", legend = c("Prior", "Posterior"), 
+       pch = c(16, 16), col = c("blue", "red"))
+```
+
+The hospital data provides a lot of information of the R- and S-values, which can clearly be seen by comparing the posterior distribution with the prior distribution through the plot.
+
+\textbf{Problem 6C}\
+Re-do Problem 4F) of mandatory assignment 2\
+```{r}
+
+Nsim <- 500
+source("seir_model.R")
+
+uncertainty <- function(dataInfo) {
+  # run simulations
+  M <- numeric(Nsim)
+  H <- matrix(0.0,Nsim,365) # prepare for next point
+  for(i in 1:Nsim){
+    #R[i] -> dataInfo[i, 1], S[i] -> dataInfo[i, 2]
+    ff <- seir_sim(R0max = dataInfo[i, 1],soc_dist_Rfac = dataInfo[i, 2])
+    t1 <- which(ff$dates=="2021-01-01")
+    t2 <- which(ff$dates=="2021-12-31")
+    H[i,] <- rowSums(1000000*ff$ode[t1:t2,c("HH","HC","CC")])
+    M[i] <- max(H[i,])
+  }
   
-  print(paste0("RWMH done, accept rate : ",Nacc/(n.iter-1)))
-  return(out)
-} # function
+  # make a data frame to facilitate plotting with dates
+  df <- data.frame(t(H),dates=ff$dates[t1:t2])
+  
+  plot1Name <- ifelse(plotNum == 1, "prior example trajetories", "posterior example trajetories")
+  
+  # in the upper plot, simply show some of the trajectories:
+  plot(df$dates,df$X1,type="l",
+       xlab="dates in 2021",
+       ylab="required hospital beds",
+       main = plot1Name) 
+  for(i in 2:50) lines(df$dates,df[,i],col=i)
+  
+  # compute daily statistics for plotting
+  daily.stats <- matrix(0.0,365,6)
+  for(t in 1:365){
+    daily.stats[t,1] <- mean(H[,t])
+    daily.stats[t,2] <- median(H[,t])
+    daily.stats[t,3:6] <- quantile(H[,t],probs=c(0.005,0.1,0.9,0.995))
+  }
+  
+  df2 <- data.frame(daily.stats,ff$dates[t1:t2])
+  colnames(df2) <- c("mean","median","q05","q10","q90","q995","dates")
+  
+  plot2Name <- ifelse(plotNum == 1, "prior distribution representation", "posterior distribution representation")
+  
+  plot(df2$dates,df2$mean,ylim=c(0,300),col=0, 
+       xlab="dates in 2021",
+       ylab="required hospital beds",
+       main=plot2Name)
+  polygon(c(df2$dates,rev(df2$dates)),c(df2$q05,rev(df2$q995)), 
+          col="red",density=100)
+  polygon(c(df2$dates,rev(df2$dates)),c(df2$q10,rev(df2$q90)),
+          col="blue",density=100)
+  lines(df2$dates,df2$mean,lwd=2)
+  lines(df2$dates,df2$median,col="green")
+  legend("bottomright",lty=c(1,1,1,1),lwd=c(10,10,2,1),
+         legend=c("99%","90%","mean","median"),
+         col=c("red","blue","black","green"),
+         horiz = TRUE)
+}
 
+```
 
-# main run 
-
-twoDRWMH.result <- twoDRWMH(lprob = seir.lp, sigma = matrix(c(3e-4, 0, 0, 5e-7), 2, 2), tuning = 2)
-twoDRWMH.result.burned <- twoDRWMH.result#[51:length(twoDRWMH.result[ ,1]), ]
-
-
-colnames(twoDRWMH.result.burned) <- c("R","S")
-colMeans(twoDRWMH.result.burned)
-
-hist(twoDRWMH.result.burned[, 1], freq = FALSE, breaks = 60)
-
-hist(twoDRWMH.result.burned[, 2], freq = FALSE, breaks = 60)
-
-# ESS <- function(x){ return(as.numeric(coda::effectiveSize(x))) }
-# ESS(twoDRWMH.result.burned)
-
+```{r}
+plotNum <- 1
+uncertainty(ind.result)
 ```
 
 
 
-\textbf{Problem 6C}
-```{r eval=FALSE, include=FALSE}
-Nsim <- 365
-population <- 1000000
-allData <- matrix(nrow = Nsim, ncol = Nsim)
-
-rVals <- twoDRWMH.result.burned[ ,1]
-sVals <- twoDRWMH.result.burned[ ,2]
-
-
-indexes <- which(grepl("2021", newSim$dates))
-
-for (i in 1:Nsim) {
-  newSim <- seir_sim(R0max = rVals[i], soc_dist_Rfac = sVals[i])
-  allData[i ,] <-rowSums(cbind(newSim$ode$HH[indexes], newSim$ode$HC[indexes], newSim$ode$CC[indexes]))*population
-}
-
-dailyMeans <- colMeans(allData)
-dailyMins <- vector(length = Nsim)
-dailyMaxs <- vector(length = Nsim)
-dailyMedians <- vector(length = Nsim)
-dailyTop75Quantiles <- vector(length = Nsim)
-dailyBottom25Quantiles <- vector(length = Nsim)
-
-for (i in 1:365) {
-  dailyMins[i] <- min(allData[,i])
-  dailyMaxs[i] <- max(allData[,i])
-  dailyMedians[i] <- median(allData[,i])
-  dailyTop75Quantiles[i] <- quantile(allData[,i])[[4]]
-  dailyBottom25Quantiles[i] <- quantile(allData[,i])[[2]]
-}
-
-
-plot(1, type="n", main = "Uncertainty in the daily required hospital beds in 2021" ,  xlab="Day", ylab="Quantity", xlim=c(0, 365), ylim=c(0, 450))
-axis(1, at=c(0,365), lab=c(0,365))
-lines(dailyMeans, col = "black", lty=2)
-lines(dailyMins, col = "green")
-lines(dailyMaxs, col = "blue")
-lines(dailyMedians, col = "red", lty=2)
-lines(dailyTop75Quantiles, col = "deeppink")
-lines(dailyBottom25Quantiles, col = "mediumorchid3")
-legend(-10, y=415, legend=c("Median", "Mean"),
-       col=c("red", "black"), lty=c(2, 2), cex=0.8, horiz=TRUE, box.lty=0)
-legend(-10, y=465, legend=c("0%", "25%", "75%", "100%"),
-       col=c("green", "mediumorchid3",  "deeppink", "blue"), lty=c(1, 1, 1, 1), cex=0.8, horiz=TRUE, box.lty=0)
+```{r}
+plotNum <- 2
+uncertainty(prior.values)
 ```
 
+The plots correspond to the data received from problem 6B. When observing the data, the variance of the R- and S-values decreases, which means that the posterior distribution will represent the required hospital beds more accurate than the prior distribution by itself.\
+The 90% confidence interval of the prior distribution ranges between 80 and 260 beds almost all the time, which from the prior example trajectories appears to be correct as the R- and S-values have a wide variety of trajectories to "choose from".\
+The 90% confidence interval of the posterior distribution has a width of around 10 required hospital beds, and follows the mean closely. Because all of the trajectories of the posterior distribution are close to equal, the result makes sense.\
 
 
+\textbf{Problem 6D}\
+Distribution of the total number of ”hospital-bed-days” for December 2020, January 2021 and February 2021.\
+
+```{r}
+
+Nsim <- 500
+
+hospBeds <- function(dataInfo) {
+  
+  december <- matrix(0.0,Nsim,31)
+  january <- matrix(0.0,Nsim,31)
+  february <- matrix(0.0,Nsim,28)
+  
+  for(i in 1:Nsim){
+    f <- seir_sim(R0max = dataInfo[i, 1], soc_dist_Rfac = dataInfo[i, 2])
+    
+    days <- which(grepl("2020-12", f$dates))
+    december[i, ] <- rowSums(1000000*f$ode[days, c("HH","HC","CC")])
+  
+    days <- which(grepl("2021-01", f$dates))
+    january[i, ] <- rowSums(1000000*f$ode[days, c("HH","HC","CC")]) 
+    
+    days <- which(grepl("2021-02", f$dates))
+    february[i, ] <- rowSums(1000000*f$ode[days, c("HH","HC","CC")])
+  }
+  
+  cbind("December" = rowSums(december), "January" = rowSums(january), "February" = rowSums(february))
+}
 
 
+priorList <- hospBeds(prior.values)
+posteriorList <- hospBeds(ind.result)
+
+boxplot(cbind(priorList, posteriorList),
+        col = c("red", "red", "red", "blue", "blue", "blue"),
+        notch = TRUE, varwidth = TRUE)
+legend("topright", legend = c("Prior", "Posterior"), col = c("red", "blue"), pch = 22, cex = 1.2)
+```
+
+The plot explains that without the given dataset of required beds from December, January and February, the uncertainty of how many beds are required increases. In this case, the number of required hospital beds ranges between 7000 and 4000 per month.\
+
+By taking the observed data from \formatdate{21}{03}{2020} to \formatdate{18}{07}{2020} into consideration, the uncertainty drastically decreases. This means that if the data is representative for the given situation, the estimation of required hospital beds is much more exact. With a high confidence, it can be seen that the required number of hospital beds for December, January and February is 4300, 5500 and 4800, respectively, with a standard deviation of around 90 hospital beds.\
 
 
-
-
-
-
-
-
+\newpage
