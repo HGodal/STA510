@@ -7,6 +7,7 @@ header-includes:
 output: pdf_document
 ---
 
+
 ```{r}
 rm(list = ls())
 library(coda)
@@ -14,9 +15,7 @@ library(mvtnorm)
 ```
 
 
-Note: For most of the simulations regarding random walk, burn-in has been used, although it is not necessary for all types of random walk. As long as the effective sample size is sufficient, burn-in is OK to use, which is why it has been used in most of the simulations.
-
-The reason burn-in is used in some random walks is because the first part of the MCMC simulation is spent "locating" the high density region. The process of "locating" the high density is not of interest, and is therefore removed by burn-in.
+\textbf{Note}: For most of the simulations regarding random walk, burn-in has been used even though it is not necessary for all types of random walk. As long as the effective sample size is sufficient, burn-in is OK to use, which is why it has been used in most of the simulations. The reason burn-in is used in some random walks is because the first part of the MCMC simulation is spent "locating" the high density region. The process of "locating" the high density is not of interest, and is therefore removed by burn-in. Independent random walk does not need burn-in, as the samples are independent and therefore not used to "locating".\
 
 
 \textbf{Problem 1: Random number generation and Monte Carlo integration}\
@@ -66,10 +65,10 @@ IndRandVariables.burned <- IndRandVariables[201:length(IndRandVariables)]
 
 # Plotting the random variables together with the probability density.
 hist(IndRandVariables.burned, probability = TRUE, breaks = 50, xlim = c(-3, 3), 
-     main = "Variables from p(x)", xlab = "Values of x")
+     main = "Independent random variables", xlab = "Values of x")
 curve(p, add = TRUE, -3, 3, col = "blue", lwd = 2)
 ```
-\ $n$ random independent variables has to be generated. This is achieved by using the independent MH sampler, as finding the CDF and using the inverse transform method proves to be difficult for the given density distribution. The main difference between an independent MH sampler and a regular MH random walk is that the independent MH sampler preserves the independence of each random variable.
+$n$ random independent variables has to be generated. This is achieved by using the independent MH sampler, as finding the CDF and using the inverse transform method proves to be difficult for the given density distribution. The main difference between an independent MH sampler and a regular MH random walk is that the independent MH sampler preserves the independence of each random variable.
 
 Although a regular MH random walk would return random variable values following the density in the long run, the variables would loose their independence as the regular MH random walk generates new random values based on the previous random value, making them autocorrelated.
 
@@ -112,11 +111,11 @@ u <- runif(Nsim)
 x.variables <- sqrt(-log(1-u))
 x.variables.burned <- x.variables[201:length(x.variables)]
 
-hist(x.variables.burned, freq = FALSE, main = 'Histogram of p(x)', xlab = 'Values of x', breaks = 50)
+hist(x.variables.burned, freq = FALSE, main = 'Independent random variables', 
+     xlab = 'Values of x', breaks = 50)
 curve(p, 0, 4, add = TRUE, n=Nsim, col="blue", lwd = 2)
 ```
-\ Because the x-values are generated directly from $p(x)$ through the inverse transform method, the random variables plotted into a histogram corresponds with the curve of the distribution density.
-
+Because the x-values are generated directly from $p(x)$ through the inverse transform method, the random variables plotted into a histogram corresponds with the curve of the distribution density.\
 
 
 \textbf{Problem 1C}\
@@ -170,8 +169,11 @@ intiMC <- mean(g(x) / dnorm(x, 4, sqrt(1/40)))
 
 c("Acutal integral" = intiReal, "Sampled integral" = intiMC)
 
-plot(g, xlim = c(2, 6), n= 1000, lwd = 2)
-curve(dnorm(x, 4, sqrt(1/40)), 2, 6, n=1000, add= TRUE, col = "blue ", lty = 2, lwd = 2)
+plot(g, xlim = c(2, 6), n= 1000, lwd = 2,
+     xlab = "Values of x", ylab = "Frequency", 
+     main = "PDF of g(x) and f(x)")
+curve(dnorm(x, 4, sqrt(1/40)), 2, 6, n = 1000, add= TRUE, 
+      col = "blue ", lty = 2, lwd = 2)
 legend("topleft", legend=c("g(x)", "f(x)"),
        col=c("black", "blue"), lty = c(1, 2) , cex=0.8)
 ```
@@ -183,14 +185,12 @@ The result from the definite integral of $g(x)$ and the value from the importanc
 \textbf{Problem 2: Smile-shaped target}\
 \textbf{Problem 2A}\
 Use a MCMC algorithm to obtain MCMC samples.\
-\
-\
+
 As the problem states, a MCMC algorithm has to be used as direct sampling from the distribution is too complicated to derive.
 
 By trial and error, a MALA algorithm is shown to produce results with a very fluctuating effective sample size. Because of this, a two-dimensional random walk Metropolis Hastings algorithm (RWMH) is assumed to be most suitable for obtaining MCMC samples.
 
 ```{r}
-# Write from scratch!
 
 lp.log <- function(theta){
   -(theta[1]^2/2)-(theta[2] - theta[1]^2)^2/2 # log(g(theta))
@@ -198,46 +198,44 @@ lp.log <- function(theta){
 
 Nsim <- 50000
 
-twoDRWMH <- function(lprob, sigma, theta = c(0.0,0.0)){
-  # allocate output space
-  out <- matrix(0.0, Nsim, 2)
-  out[1, ] <- theta
+twoDRWMH <- function(logProb, theta, sigma) {
+  resMatrix <- matrix(0.0, Nsim, 2)
+  resMatrix[1, ] <- theta
   
-  # store old lprob
-  lp.old <- lprob(theta)
+  # store old logProb
+  lp.old <- logProb(theta)
   
   # accept counter
-  Nacc <- 0
+  acceptCount <- 0
   # main iteration loop
   for(i in 2:Nsim){
     # proposal
     # using rmvnorm and a matrix as sigma to operate at both theta values
-    thetaStar <- out[(i-1), ] + rmvnorm(1, theta, diag(sigma, 2, 2))
+    thetaStar <- resMatrix[(i-1), ] + rmvnorm(1, theta, diag(sigma, 2, 2))
     
     # evaluate
-    lp.star <- lprob(thetaStar)
+    lp.star <- logProb(thetaStar)
     
     # accept prob
     alpha <- exp(min(0.0, lp.star - lp.old))
     
     # accept/reject
     if(runif(1) < alpha && is.finite(alpha)){
-      # accept
-      out[i, ] <- thetaStar
+      resMatrix[i, ] <- thetaStar
       lp.old <- lp.star
-      Nacc <- Nacc + 1
+      acceptCount <- acceptCount + 1
     } else {
-      out[i, ] <- out[(i-1), ]      
+      resMatrix[i, ] <- resMatrix[(i-1), ]      
     }
   }
   
-  print(c("Acceptance rate" = round(Nacc/(Nsim - 1), 4)))
-  return(out)
+  print(c("Acceptance rate" = round(acceptCount/(Nsim - 1), 4)))
+  return(resMatrix)
 }
 
-twoDRWMH.result <- twoDRWMH(lprob = lp.log , sigma = 4.3)
+twoDRWMH.result <- twoDRWMH(logProb = lp.log , theta = c(0.0,0.0), sigma = 4.6)
 twoDRWMH.result.burned <- twoDRWMH.result[501:length(twoDRWMH.result[ ,1]), ]
-colnames(twoDRWMH.result.burned) <- c("theta1","theta2")
+colnames(twoDRWMH.result.burned) <- c("Theta 1","Theta 2")
 
 plot(twoDRWMH.result.burned)
 
@@ -245,33 +243,32 @@ ESS <- function(x){ return(as.numeric(coda::effectiveSize(x))) }
 ess <- ESS(twoDRWMH.result.burned)
 c("ESS Theta 1" = ess[[1]], "ESS Theta 2" = ess[[2]])
 
-hist(twoDRWMH.result.burned[,1], xlab="Theta 1", freq = FALSE, breaks = 60)
+hist(twoDRWMH.result.burned[,1], xlab="Theta 1", freq = FALSE, breaks = 60, 
+     main = "The marginal distribution of Theta 1")
 curve(dnorm(x, mean = 0, sd = 1), col = "blue", add = TRUE, lwd = 2)
 ```
 
-Tuning the algorithm to make it as efficient as possible is done by tweaking the sigma used, which defines how large the jumps are. If the jumps are "too large" the chain sticks, and if the jumps are "too small" the chain explores the parameter space very slowly. According to Sherlock and Roberts, the acceptance rate should be close to $0.234$, with the reason being that this acceptance rate minimizes the expected square jump distance, which can be seen as minimizing the autocorrelation.\
-By trial and error, $sigma = 4.3$ is used to make the algorithm the most efficient, and the acceptance rate close to $0.234$.\
+Tuning the algorithm to make it as efficient as possible is done by tweaking the sigma used, which defines how large the jumps are. If the jumps are "too large" the chain sticks, and if the jumps are "too small" the chain explores the parameter space very slowly.
+
+According to a paper of Sherlock and Roberts regarding the optimal scaling of the random walk Metropolis, the acceptance rate should be close to $0.234$, with the reason being that this acceptance rate minimizes the expected square jump distance, which can be seen as minimizing the autocorrelation.
+
+By trial and error, $sigma = 4.6$ is used to make the algorithm the most efficient, and the acceptance rate close to $0.234$.
 
 The histogram of theta 1 clearly illustrates that the theta1-marginal distribution of is still normally distributed with parameters $\mu = 0, \sigma^2 = 1$.\
 
-After the burn-in, the output shows that the effective sample size, both for alpha and beta, are over 1000.\
-
--> Add reference to the document linked at https://www.cambridge.org/core/journals/journal-of-applied-probability/article/optimal-scaling-of-the-random-walk-metropolis-general-criteria-for-the-0234-acceptance-rule/52670E8E3E61E8D920DC98E79D3E2CE5
-
+After the burn-in, the output shows that the effective sample size, both for alpha and beta, are over 1000.
 
 \newpage
 \textbf{Problem 3: IMH for simple logistic regression problem}\
 \textbf{Problem 3A}\
-Use an independent MH sampler.
-```{r}
+Use an independent MH sampler.\
 
-library(mvtnorm)
+```{r}
 
 df <- data.frame(read.table("logistic_regression_data.txt"))
 x <- df$x
 y <- df$y
 
-# exp siden man har log av 
 logistic.lp <- function(theta){
     alpha <- theta[1]
     beta <- theta[2]
@@ -291,6 +288,7 @@ logistic.lp <- function(theta){
 Nsim <- 10000
 
 iMH <- function(target_prob, theta, sigma, tuning) {
+  # Note: Taking exp(log-expression) to work with "normal" values.
   res <- matrix(0, Nsim, 2)
   # allocate memory
   res[1, ] <- theta
@@ -302,7 +300,8 @@ iMH <- function(target_prob, theta, sigma, tuning) {
     # proposal (note, independent of past)
     thetaStar <- rmvnorm(1, mean = theta, sigma = sigma * tuning)
     # new importance weight
-    wt.star <- exp(target_prob(thetaStar)) / dmvnorm(thetaStar, mean = theta, sigma = sigma)
+    wt.star <- exp(target_prob(thetaStar)) /
+      dmvnorm(thetaStar, mean = theta, sigma = sigma)
     
     # accept probability
     alpha <- min(1.0, wt.star / wt.old)
@@ -333,36 +332,22 @@ print(
   )
 )
 
-# hist(iMH.output.burned[ ,1], breaks = 60, freq = FALSE)
-# curve(dnorm(x, mean(iMH.output.burned[,1]), sd(iMH.output.burned[,1])), add=TRUE)
-
-# print(var(iMH.output.burned[ ,1]))
-# print(var(iMH.output.burned[ ,2]))
-
-# hist(iMH.output.burned[ ,2], breaks = 60, freq = FALSE)
-# curve(dnorm(x, mean(iMH.output.burned[,2]), sd(iMH.output.burned[,2])), add=TRUE)
-
-
-# plot(iMH.output.burned,pch=20,cex=0.1,xlab="MCMC iteration #")
-
-# cov(iMH.output.burned)
+plot(iMH.output.burned, type = "l", xlab = "Theta 1", ylab = "Theta 2")
 
 ess <- ESS(iMH.output.burned)
 c("ESS Alpha" = ess[[1]], "ESS Beta" = ess[[2]])
 ```
 
-As the function $logistics.lp$ returns the log-posterior kernel, taking $e^{logistics.lp}$ allows the independent MH sampler to operate with "normal" values instead of log-values.\
+As the function $logistics.lp$ returns the log-posterior kernel, taking $e^{logistics.lp}$ allows the independent MH sampler to operate with "normal" values instead of log-values.
 
-Say something about the acceptance rate and the tuning.\
+The mean from the independent MH sampler is approximately the same as the point estimate from the initial maximum likelihood-based classical analysis.
 
-The mean from the independent MH sampler is approximately the same as the point estimate from the initial maximum likelihood-based classical analysis.\
-
-The effective sample size of both alpha and beta are well over 1000.
-
+The effective sample size of both alpha and beta are well over 1000.\
 
 
 \textbf{Problem 3B}\
-Plot the median, 5% quantile, and the 95% quantile.\
+Plot the median, 5% quantile, and the 95% quantile.
+
 ```{r}
 
 mFunc <- function(x_i) {
@@ -370,7 +355,8 @@ mFunc <- function(x_i) {
 }
 
 stepInfo <- function(x_i) {
-  mstar <- exp(iMH.output.burned[ , 1] + iMH.output.burned[ , 2] * x_i) / (1 + exp(iMH.output.burned[ , 1] + iMH.output.burned[ , 2] * x_i))
+  mstar <- exp(iMH.output.burned[ , 1] + iMH.output.burned[ , 2] * x_i) / 
+    (1 + exp(iMH.output.burned[ , 1] + iMH.output.burned[ , 2] * x_i))
   med <- median(mstar)
   # Quant01 is used in problem 3c)
   quant01 <- quantile(mstar, 0.01)
@@ -388,13 +374,14 @@ for (i in 1:length(xSequence)) {
   plotInfo[i,] <- stepInfo(xSequence[i])
 }
 
-plot(xSequence, plotInfo[, 1], type="l", col="black")
+plot(xSequence, plotInfo[, 1], type="l", col="black", ylab = "m(x*)")
 lines(xSequence, plotInfo[, 3], type="l", col="blue", lty=2)
 lines(xSequence, plotInfo[, 4], type="l", col="red", lty=2)
 legend("topleft", legend=c("95% Quantile","Median", "5% Quantile"),
        col=c("red", "black", "blue"), lty=c(2, 1, 2), cex=0.8)
 ```
 
+\
 \textbf{Problem 3C}\
 Find x-values with 99% certainty that $m(x*) > 0.8$.\
 ```{r}
@@ -408,21 +395,19 @@ firstOccurence.rounded <- round(firstOccurence, 3)
 
 print(c("Smallest x*-value" = firstOccurence))
 
-plot(xSequence, plotInfo[, 1], type="l", col="black")
+plot(xSequence, plotInfo[, 1], type="l", col="black", ylab = "m(x*)")
 abline(v = firstOccurence, col="red", lty = 2, lwd = 2)
 abline(h = lowestValue, col="blue", lty = 2, lwd = 2)
 axis(1, at=firstOccurence.rounded, labels=firstOccurence.rounded)
-legend("topleft", legend=c("0.01 Quantile", "Lowest x*-value", "m(x*) > 0.8"),
+legend("bottomright", legend=c("0.01 Quantile", "Lowest x*-value", "m(x*) > 0.8"),
        col=c("black", "red", "blue"), lty = c(1, 2, 2) , cex=0.8)
 ```
 
-As the plot from problem 3b illustrates, $m(x*)$ is a strictly increasing function. This means that if $a < b$, $m(a) < m(b)$. The 1% quantile provides x-values with 99% certainty that $m(x*) > 0.8$. This means that there is a lower $x*$, and all $x*$-values above satisfy the condition $m(x*) > 0.8$.\
-
-This means that for any $x*$-values larger than or equal to `r firstOccurence.rounded`, the condition $m(x*) > 0.8$ with a certainty of 99% is fulfilled.\
+As the plot from problem 3b illustrates, $m(x*)$ is a strictly increasing function. This means that if $a < b$, $m(a) < m(b)$. The 1% quantile provides x-values with 99% certainty that $m(x*) > 0.8$. This means that there is a lower $x*$, and all $x*$-values above satisfy the condition $m(x*) > 0.8$. This means that for any $x*$-values larger than or equal to `r firstOccurence.rounded`, the condition $m(x*) > 0.8$ with a certainty of 99% is fulfilled.
 
 
 \newpage
-\textbf{Problem 4: Gibbs sampler for simple linear regression model}
+\textbf{Problem 4: Gibbs sampler for simple linear regression model}\
 \textbf{Problem 4A}\
 Find the distribution of $\alpha | \beta, \tau, \boldsymbol{y}$ and $\beta | \alpha, \tau, \boldsymbol{y}$\
 
@@ -469,19 +454,15 @@ $$
 \tau | \alpha, \beta, \boldsymbol{y} \sim Gamma\left(\frac{n}{2}+1, \frac{1}{\frac{1}{2}\sum_{i=1}^{n}(y_i-\alpha-\beta x_i)^2+1}\right)
 $$
 
-
+\
 \textbf{Problem 4B + 4C}\
-Gibbs sampler with 3 blocks targeting $p(\boldsymbol{\theta|y})$.\
+Gibbs sampler with 3 blocks targeting $p(\boldsymbol{\theta|y})$.
+
 ```{r}
 
 df <- data.frame(read.table(file="linear_regression_data.txt"))
 x <- df$x
 y <- df$y
-
-
-#
-# Gibbsampler for bivariate normal target
-#
 
 gibbs3b <- function() {
   n <- 10000 # number of Gibbs iterations
@@ -509,6 +490,7 @@ gibbs3b <- function() {
        # update third block (tau)
       theta[3] <- rgamma(1, shape = length(y)/2 + 1,
                          scale = 1/(1/2 * sum((y-theta[1]-theta[2]*x)^2) + 1))
+      
       # store state
       res[k, ] <- theta
       k <- k+1
@@ -517,7 +499,7 @@ gibbs3b <- function() {
 }
 ```
 
-
+\
 \textbf{Problem 4C}\
 Use the Gibbs sampler with 3 blocks.\
 ```{r}
@@ -530,8 +512,6 @@ colnames(gibbs3.burned) <-  c("Alpha", "Beta", "Tau")
 round(colMeans(gibbs3.burned), 4)
 
 plot(gibbs3.burned[,1], gibbs3.burned[,2], type="l", xlab = "Alpha", ylab = "Beta")
-# plot(gibbs3.burned[,1], gibbs3.burned[,3], type="l", xlab = "Alpha", ylab = "Tau")
-# plot(gibbs3.burned[,2], gibbs3.burned[,3], type="l", xlab = "Beta", ylab = "Tau")
 
 ess <- ESS(gibbs3.burned)
 c("ESS Alpha" = ess[[1]], "ESS Beta" = ess[[2]], "ESS Tau" = ess[[3]])
@@ -541,9 +521,9 @@ lm.out <- lm(y~x,data=df)
 c("Alpha" = lm.out$coefficients[[1]], "Beta" = lm.out$coefficients[[2]])
 ```
 
-After burn-in, the effective sample size of all $\alpha$, $\beta$ and $\tau$ are above the required size of 1000.\
+After burn-in, the effective sample size of all $\alpha$, $\beta$ and $\tau$ are above the required size of 1000.
 
-It can be seen from the plots that $\alpha$ and $\beta$ has a correlation of `r cor(gibbs3.burned[,1], gibbs3.burned[,2])`, while the other plots show a correlation close to zero. Thus, $\alpha$ and $\beta$ are dependent on each other, and the Gibbs sampler would be improved by combining $\alpha$ and $\beta$, and reducing the number of blocks from three to two.\
+It can be seen from the plots that $\alpha$ and $\beta$ has a correlation of `r cor(gibbs3.burned[,1], gibbs3.burned[,2])`, while the other plots show a correlation close to zero. Thus, $\alpha$ and $\beta$ are dependent on each other, and the Gibbs sampler would be improved by combining $\alpha$ and $\beta$, and reducing the number of blocks from three to two.
 
 The last output can be used to compare the posterior means with a classical linear regression, which gives approximately the same $\alpha$- and $\beta$-values.\
 
@@ -620,44 +600,38 @@ colnames(gibbs2.burned) <-  c("Alpha", "Beta", "Tau")
 
 round(colMeans(gibbs2.burned), 4)
 
-# plot(gibbs2.burned[,1], gibbs2.burned[,2], type="l", xlab = "Alpha", ylab = "Beta")
-# plot(gibbs2.burned[,1], gibbs2.burned[,3], type="l", xlab = "Alpha", ylab = "Tau")
-# plot(gibbs2.burned[,2], gibbs2.burned[,3], type="l", xlab = "Beta", ylab = "Tau")
-
-# hist(gibbs2.burned[,1])
-# hist(gibbs2.burned[,2])
-
-# plot(gibbs2.burned, type = "l")
+plot(gibbs2.burned[,1], gibbs2.burned[,2], type="l", xlab = "Alpha", ylab = "Beta")
 
 ess <- ESS(gibbs2.burned)
 c("ESS Alpha" = ess[[1]], "ESS Beta" = ess[[2]], "ESS Tau" = ess[[3]])
 ```
 
-The new effective sample sizes clearly shows that fewer simulations are needed to get the same ESS as in problem 3C, meaning that the performance of the Gibbs sampling procedure has been improved.\
+The new effective sample sizes clearly shows that fewer simulations are needed to get the same ESS as in problem 3C, meaning that the performance of the Gibbs sampling procedure has been improved.
 
-Having fewer blocks and improving independence between the blocks gives better samples, which is clearly showed in the solution of the problem.\
+Having fewer blocks and improving independence between the blocks gives better samples, which is clearly showed in the solution of the problem.
 
-As in problem 3C, the mean of $\alpha$, $\beta$ and $\tau$ are still the same, meaning that the sampling still works as intended.
+As in problem 3C, the mean of $\alpha$, $\beta$ and $\tau$ are still the same, meaning that the sampling still works as intended. In addition, the plot shows that the dependence of $\alpha$ and $\beta$ are still intact.\
+
 
 \textbf{Problem 4E}\
-Verify that $\alpha + \beta = 0$\
+Verify that $\alpha + \beta = 0$.
 
-This can be seen as a hypothesis test, using the 15- and 75-percentile on both Gibbs samplers.
+This can be seen as a hypothesis test, using the 15- and 75-percentile on both Gibbs samplers.\
 ```{r}
 
 alpha_beta3 <- gibbs3.burned[, 1] + gibbs3.burned[, 2]
-hist(alpha_beta3, breaks = 60)
-abline(v = quantile(alpha_beta3, 0.975), lwd="2")
-abline(v = quantile(alpha_beta3, 1-0.975), lwd="2")
+hist(alpha_beta3, breaks = 60, main = "Alpha + Beta", xlab = "Alpha + Beta")
+abline(v = quantile(alpha_beta3, 0.975), lwd="2", col = "blue")
+abline(v = quantile(alpha_beta3, 1-0.975), lwd="2", col = "blue")
 
 alpha_beta2 <- gibbs2.burned[, 1] + gibbs2.burned[, 2]
-hist(alpha_beta2, breaks = 60)
-abline(v = quantile(alpha_beta2, 0.975), lwd="2")
-abline(v = quantile(alpha_beta2, 1-0.975), lwd="2")
+hist(alpha_beta2, breaks = 60, main = "Alpha + Beta", xlab = "Alpha + Beta")
+abline(v = quantile(alpha_beta2, 0.975), lwd="2", col = "blue")
+abline(v = quantile(alpha_beta2, 1-0.975), lwd="2", col = "blue")
 
 ```
 
-From the Gibbs sampler with three blocks shows that $\alpha + \beta$ equals zero falls outside the quantile limits, and the  hypothesis can be rejected.\
+From the Gibbs sampler with three blocks shows that $\alpha + \beta$ equals zero falls outside the quantile limits, and the  hypothesis can be rejected.
 
 On the other hand, the Gibbs sampler with two blocks shows that $\alpha + \beta$ equals zero falls inside the quantile limits. This means that $\alpha + \beta = 0$ might hold true. Thus, the hypothesis can not be rejected in this case.\
 
@@ -684,31 +658,30 @@ sdestfunc <- function(data, i) {
 
 boot.obj <- boot(data = df, statistic = sdestfunc, R = 5000)
 
-# plot(boot.obj)
-
 sigma <- 1/sqrt(
   rgamma(5000, shape = length(y)/2 + 1,
   scale = 1/(1/2 * sum((y - mean(boot.obj$t[,1]) - mean(boot.obj$t[,2])*x)^2) + 1))
 )
 
 # Claim 1
-hist(sigma, breaks = 60)
+hist(sigma, breaks = 60, xlab = "Sigma")
 abline(v = 1, lwd = 2, col = "blue")
 
 # Claim 2
-hist(boot.obj$t[ ,1], breaks = 60)
+hist(boot.obj$t[ ,1], breaks = 60, main = "Histogram of alpha", xlab = "Alpha")
 abline(v = quantile(boot.obj$t[ ,1], 0.975), lwd = 2, col = "blue")
 abline(v = quantile(boot.obj$t[ ,1], 1 - 0.975), lwd = 2, col = "blue")
 
 # Claim 3
-hist(boot.obj$t[ ,1] + boot.obj$t[ ,2], breaks = 60)
+hist(boot.obj$t[ ,1] + boot.obj$t[ ,2], breaks = 60, main = "Histogram of alpha + beta",
+     xlab = "Alpha + Beta")
 abline(v = quantile(boot.obj$t[ ,1] + boot.obj$t[ ,2], 0.975), lwd = 2, col = "blue")
 abline(v = quantile(boot.obj$t[ ,1] + boot.obj$t[ ,2], 1-0.975), lwd = 2, col = "blue")
 ```
 
-The first histogram clearly shows that $\sigma$ is not strictly smaller than 1.0. Because of this, claim 1 is rejected.\
+The first histogram clearly shows that $\sigma$ is not strictly smaller than 1.0. Because of this, claim 1 is rejected.
 
-Claim 2 is also rejected as the second histogram shows that $\alpha = 0$ falls outside the 95% confidence interval.\
+Claim 2 is also rejected as the second histogram shows that $\alpha = 0$ falls outside the 95% confidence interval.
 
 As $\alpha + \beta = 0$ falls inside the 95% confidence interval, claim 3 can not be rejected.
 
@@ -724,7 +697,7 @@ Using a bivariate RWMH does not yield effective sample sizes of R and S of 200 o
 
 source("seir_mcmc_funs.R")
 
-Nsim <- 1000
+Nsim <- 1500
 
 # Independent sampler
 ind.2DRW <- function(l_target_prob, theta, sigma, tuning){
@@ -732,26 +705,25 @@ ind.2DRW <- function(l_target_prob, theta, sigma, tuning){
   res <- matrix(0, Nsim, 2)
   res[1, ] <- theta
    # old importance weight
-  wt.old <- l_target_prob(theta) - dmvnorm(theta, theta, sigma, log=TRUE)
+  wt.old <- l_target_prob(theta) - dmvnorm(theta, theta, sigma, log = TRUE)
   Nacc <- 0
   for (i in 2:Nsim){
     # proposal (note, independent of past)
-    # Sample theta from multivariate normal with scaled sigma
     thetaStar <- rmvnorm(1, theta, tuning*sigma)
     # new importance weight
-    wt.star <- l_target_prob(thetaStar) - dmvnorm(thetaStar, theta, sigma, log=TRUE)
+    wt.star <- l_target_prob(thetaStar) - dmvnorm(thetaStar, theta, sigma, log = TRUE)
     # accept probability
     alpha <- exp(min(0.0, wt.star - wt.old))
     # accept/reject
-    if(runif(1)<alpha && is.finite(alpha)){
-      res[i,] <- thetaStar
+    if(runif(1) < alpha && is.finite(alpha)){
+      res[i, ] <- thetaStar
       wt.old <- wt.star
-      Nacc <- Nacc+1
+      Nacc <- Nacc + 1
     } else {
       res[i,] <- res[(i-1),]
     }
   }
-  print(paste0("accept rate : ",Nacc/Nsim))
+  print(paste0("Accept rate : ",Nacc/Nsim))
   return(res)
 }
 
@@ -761,18 +733,18 @@ ind.result <- ind.2DRW(seir.lp,
              sigma=matrix(c(0.0003,0,0,0.0000005),2,2),
              tuning=0.8)
 
-plot(ind.result[,1], ind.result[,2], type="l", main="2DIRW", xlab="R", ylab="S")
-ESS(ind.result[,1])
-ESS(ind.result[,2])
+plot(ind.result[,1], ind.result[,2], type="l", main="MCMC samples", xlab="R", ylab="S")
+ess <- ESS(ind.result)
+c("ESS R" = ess[[1]], "ESS S" = ess[[2]])
 
 ```
 
-The effective sample size for R and S are both over the required 200.\
-# Omformulere?
+The effective sample size for R and S are both over the required 200.
+
 The plot shows that the sampler explores the distribution quite well, avoiding the chain to stick, while also avoiding exploring the parameter space too slowly.
 
 
-\textbf{Problem 6B}
+\textbf{Problem 6B}\
 Compare the posterior distribution and the prior distribution.\
 
 ```{r}
@@ -798,7 +770,8 @@ prior.values <- prior()
 
 plot(prior.values[ ,1], prior.values[ ,2], 
      xlab = "R", ylab = "S",
-     pch = 21, bg = "blue")
+     pch = 21, bg = "blue",
+     main = "Prior and Posterior distribution")
 points(ind.result[ ,1], ind.result[ ,2], pch = 21, bg = "red", cex = 1.3)
 legend("topright", legend = c("Prior", "Posterior"), 
        pch = c(16, 16), col = c("blue", "red"))
@@ -806,8 +779,9 @@ legend("topright", legend = c("Prior", "Posterior"),
 
 The hospital data provides a lot of information of the R- and S-values, which can clearly be seen by comparing the posterior distribution with the prior distribution through the plot.
 
+
 \textbf{Problem 6C}\
-Re-do Problem 4F) of mandatory assignment 2\
+Re-do Problem 4F) of mandatory assignment 2.\
 ```{r}
 
 Nsim <- 500
@@ -829,12 +803,14 @@ uncertainty <- function(dataInfo) {
   # make a data frame to facilitate plotting with dates
   df <- data.frame(t(H),dates=ff$dates[t1:t2])
   
-  plot1Name <- ifelse(plotNum == 1, "prior example trajetories", "posterior example trajetories")
+  plot1Name <- ifelse(plotNum == 1, 
+                      "Prior example trajetories",
+                      "Posterior example trajetories")
   
   # in the upper plot, simply show some of the trajectories:
   plot(df$dates,df$X1,type="l",
-       xlab="dates in 2021",
-       ylab="required hospital beds",
+       xlab="Dates in 2021",
+       ylab="Required hospital beds",
        main = plot1Name) 
   for(i in 2:50) lines(df$dates,df[,i],col=i)
   
@@ -849,11 +825,13 @@ uncertainty <- function(dataInfo) {
   df2 <- data.frame(daily.stats,ff$dates[t1:t2])
   colnames(df2) <- c("mean","median","q05","q10","q90","q995","dates")
   
-  plot2Name <- ifelse(plotNum == 1, "prior distribution representation", "posterior distribution representation")
+  plot2Name <- ifelse(plotNum == 1, 
+                      "Prior distribution representation", 
+                      "Posterior distribution representation")
   
   plot(df2$dates,df2$mean,ylim=c(0,300),col=0, 
-       xlab="dates in 2021",
-       ylab="required hospital beds",
+       xlab="Dates in 2021",
+       ylab="Required hospital beds",
        main=plot2Name)
   polygon(c(df2$dates,rev(df2$dates)),c(df2$q05,rev(df2$q995)), 
           col="red",density=100)
@@ -862,7 +840,7 @@ uncertainty <- function(dataInfo) {
   lines(df2$dates,df2$mean,lwd=2)
   lines(df2$dates,df2$median,col="green")
   legend("bottomright",lty=c(1,1,1,1),lwd=c(10,10,2,1),
-         legend=c("99%","90%","mean","median"),
+         legend=c("99%","90%","Mean","Median"),
          col=c("red","blue","black","green"),
          horiz = TRUE)
 }
@@ -874,15 +852,15 @@ plotNum <- 1
 uncertainty(ind.result)
 ```
 
-
-
 ```{r}
 plotNum <- 2
 uncertainty(prior.values)
 ```
 
-The plots correspond to the data received from problem 6B. When observing the data, the variance of the R- and S-values decreases, which means that the posterior distribution will represent the required hospital beds more accurate than the prior distribution by itself.\
-The 90% confidence interval of the prior distribution ranges between 80 and 260 beds almost all the time, which from the prior example trajectories appears to be correct as the R- and S-values have a wide variety of trajectories to "choose from".\
+The plots correspond to the data received from problem 6B. When observing the data, the variance of the R- and S-values decreases, which means that the posterior distribution will represent the required hospital beds more accurate than the prior distribution by itself.
+
+The 90% confidence interval of the prior distribution ranges between 80 and 260 beds almost all the time, which from the prior example trajectories appears to be correct as the R- and S-values have a wide variety of trajectories to "choose from".
+
 The 90% confidence interval of the posterior distribution has a width of around 10 required hospital beds, and follows the mean closely. Because all of the trajectories of the posterior distribution are close to equal, the result makes sense.\
 
 
@@ -912,7 +890,7 @@ hospBeds <- function(dataInfo) {
     february[i, ] <- rowSums(1000000*f$ode[days, c("HH","HC","CC")])
   }
   
-  cbind("December" = rowSums(december), "January" = rowSums(january), "February" = rowSums(february))
+  cbind("Dec" = rowSums(december), "Jan" = rowSums(january), "Feb" = rowSums(february))
 }
 
 
@@ -925,9 +903,8 @@ boxplot(cbind(priorList, posteriorList),
 legend("topright", legend = c("Prior", "Posterior"), col = c("red", "blue"), pch = 22, cex = 1.2)
 ```
 
-The plot explains that without the given dataset of required beds from December, January and February, the uncertainty of how many beds are required increases. In this case, the number of required hospital beds ranges between 7000 and 4000 per month.\
+The plot explains that without the given dataset of required beds from December, January and February, the uncertainty of how many beds are required increases. In this case, the number of required hospital beds ranges between 7000 and 4000 per month.
 
 By taking the observed data from \formatdate{21}{03}{2020} to \formatdate{18}{07}{2020} into consideration, the uncertainty drastically decreases. This means that if the data is representative for the given situation, the estimation of required hospital beds is much more exact. With a high confidence, it can be seen that the required number of hospital beds for December, January and February is 4300, 5500 and 4800, respectively, with a standard deviation of around 90 hospital beds.\
 
 
-\newpage
