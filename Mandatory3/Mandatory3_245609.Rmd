@@ -2,8 +2,6 @@
 title: "Mandatory 3"
 author: "Håvard Godal, 245609"
 date: \today
-header-includes:
-  - \usepackage[nodayofweek,level]{datetime}
 output: pdf_document
 ---
 
@@ -72,7 +70,7 @@ $n$ random independent variables has to be generated. This is achieved by using 
 
 Although a regular MH random walk would return random variable values following the density in the long run, the variables would loose their independence as the regular MH random walk generates new random values based on the previous random value, making them autocorrelated.
 
-
+\newpage
 \textbf{Problem 1B}\
 Generate $n$ independent random variables from the distribution-density $p(x)$.
 $$
@@ -115,9 +113,10 @@ hist(x.variables.burned, freq = FALSE, main = 'Independent random variables',
      xlab = 'Values of x', breaks = 50)
 curve(p, 0, 4, add = TRUE, n=Nsim, col="blue", lwd = 2)
 ```
+\
 Because the x-values are generated directly from $p(x)$ through the inverse transform method, the random variables plotted into a histogram corresponds with the curve of the distribution density.\
 
-
+\newpage
 \textbf{Problem 1C}\
 Perform importance sampling with the integral:
 
@@ -177,6 +176,7 @@ curve(dnorm(x, 4, sqrt(1/40)), 2, 6, n = 1000, add= TRUE,
 legend("topleft", legend=c("g(x)", "f(x)"),
        col=c("black", "blue"), lty = c(1, 2) , cex=0.8)
 ```
+\
 The plot illustrates that $f(x)$ is proportional to $g(x)$, meaning that $f(x)$ can be used to generate x-values.
 
 The result from the definite integral of $g(x)$ and the value from the importance sampling are approximately the same, showing that the importance sampling was done properly.\
@@ -237,7 +237,7 @@ twoDRWMH.result <- twoDRWMH(logProb = lp.log , theta = c(0.0,0.0), sigma = 4.6)
 twoDRWMH.result.burned <- twoDRWMH.result[501:length(twoDRWMH.result[ ,1]), ]
 colnames(twoDRWMH.result.burned) <- c("Theta 1","Theta 2")
 
-plot(twoDRWMH.result.burned)
+plot(twoDRWMH.result.burned, main = "MCMC samples")
 
 ESS <- function(x){ return(as.numeric(coda::effectiveSize(x))) }
 ess <- ESS(twoDRWMH.result.burned)
@@ -332,7 +332,8 @@ print(
   )
 )
 
-plot(iMH.output.burned, type = "l", xlab = "Theta 1", ylab = "Theta 2")
+plot(iMH.output.burned, type = "l", xlab = "Theta 1", ylab = "Theta 2",
+     main = "Independent MH samples")
 
 ess <- ESS(iMH.output.burned)
 c("ESS Alpha" = ess[[1]], "ESS Beta" = ess[[2]])
@@ -344,9 +345,9 @@ The mean from the independent MH sampler is approximately the same as the point 
 
 The effective sample size of both alpha and beta are well over 1000.\
 
-
+\newpage
 \textbf{Problem 3B}\
-Plot the median, 5% quantile, and the 95% quantile.
+Plot the median, 5% quantile, and the 95% quantile.\
 
 ```{r}
 
@@ -374,7 +375,8 @@ for (i in 1:length(xSequence)) {
   plotInfo[i,] <- stepInfo(xSequence[i])
 }
 
-plot(xSequence, plotInfo[, 1], type="l", col="black", ylab = "m(x*)")
+plot(xSequence, plotInfo[, 1], type="l", col="black", ylab = "m(x*)",
+     main = "95%, 5% and median of m(x*)")
 lines(xSequence, plotInfo[, 3], type="l", col="blue", lty=2)
 lines(xSequence, plotInfo[, 4], type="l", col="red", lty=2)
 legend("topleft", legend=c("95% Quantile","Median", "5% Quantile"),
@@ -382,6 +384,7 @@ legend("topleft", legend=c("95% Quantile","Median", "5% Quantile"),
 ```
 
 \
+\newpage
 \textbf{Problem 3C}\
 Find x-values with 99% certainty that $m(x*) > 0.8$.\
 ```{r}
@@ -395,7 +398,8 @@ firstOccurence.rounded <- round(firstOccurence, 3)
 
 print(c("Smallest x*-value" = firstOccurence))
 
-plot(xSequence, plotInfo[, 1], type="l", col="black", ylab = "m(x*)")
+plot(xSequence, plotInfo[, 1], type="l", col="black", ylab = "m(x*)",
+     main = "1% Quantile of m(x*)")
 abline(v = firstOccurence, col="red", lty = 2, lwd = 2)
 abline(h = lowestValue, col="blue", lty = 2, lwd = 2)
 axis(1, at=firstOccurence.rounded, labels=firstOccurence.rounded)
@@ -455,8 +459,9 @@ $$
 $$
 
 \
+\newpage
 \textbf{Problem 4B + 4C}\
-Gibbs sampler with 3 blocks targeting $p(\boldsymbol{\theta|y})$.
+Gibbs sampler with 3 blocks targeting $p(\boldsymbol{\theta|y})$.\
 
 ```{r}
 
@@ -500,6 +505,7 @@ gibbs3b <- function() {
 ```
 
 \
+\newpage
 \textbf{Problem 4C}\
 Use the Gibbs sampler with 3 blocks.\
 ```{r}
@@ -511,7 +517,9 @@ colnames(gibbs3.burned) <-  c("Alpha", "Beta", "Tau")
 
 round(colMeans(gibbs3.burned), 4)
 
-plot(gibbs3.burned[,1], gibbs3.burned[,2], type="l", xlab = "Alpha", ylab = "Beta")
+plot(gibbs3.burned[,1], gibbs3.burned[,2], type="l", 
+     main = "Correlation of alpha and beta",
+     xlab = "Alpha", ylab = "Beta")
 
 ess <- ESS(gibbs3.burned)
 c("ESS Alpha" = ess[[1]], "ESS Beta" = ess[[2]], "ESS Tau" = ess[[3]])
@@ -527,7 +535,7 @@ It can be seen from the plots that $\alpha$ and $\beta$ has a correlation of `r 
 
 The last output can be used to compare the posterior means with a classical linear regression, which gives approximately the same $\alpha$- and $\beta$-values.\
 
-
+\newpage
 \textbf{Problem 4D}\
 Gibbs sampler with 2 blocks.\
 
@@ -600,7 +608,9 @@ colnames(gibbs2.burned) <-  c("Alpha", "Beta", "Tau")
 
 round(colMeans(gibbs2.burned), 4)
 
-plot(gibbs2.burned[,1], gibbs2.burned[,2], type="l", xlab = "Alpha", ylab = "Beta")
+plot(gibbs2.burned[,1], gibbs2.burned[,2], type="l", 
+     main = "Correlation of alpha and beta",
+     xlab = "Alpha", ylab = "Beta")
 
 ess <- ESS(gibbs2.burned)
 c("ESS Alpha" = ess[[1]], "ESS Beta" = ess[[2]], "ESS Tau" = ess[[3]])
@@ -612,11 +622,11 @@ Having fewer blocks and improving independence between the blocks gives better s
 
 As in problem 3C, the mean of $\alpha$, $\beta$ and $\tau$ are still the same, meaning that the sampling still works as intended. In addition, the plot shows that the dependence of $\alpha$ and $\beta$ are still intact.\
 
-
+\newpage
 \textbf{Problem 4E}\
-Verify that $\alpha + \beta = 0$.
+Verify that $\alpha + \beta = 0$.\
 
-This can be seen as a hypothesis test, using the 15- and 75-percentile on both Gibbs samplers.\
+This can be seen as a hypothesis test, using the 15- and 75-percentile on both Gibbs samplers.
 ```{r}
 
 alpha_beta3 <- gibbs3.burned[, 1] + gibbs3.burned[, 2]
@@ -743,7 +753,7 @@ The effective sample size for R and S are both over the required 200.
 
 The plot shows that the sampler explores the distribution quite well, avoiding the chain to stick, while also avoiding exploring the parameter space too slowly.
 
-
+\newpage
 \textbf{Problem 6B}\
 Compare the posterior distribution and the prior distribution.\
 
@@ -779,7 +789,7 @@ legend("topright", legend = c("Prior", "Posterior"),
 
 The hospital data provides a lot of information of the R- and S-values, which can clearly be seen by comparing the posterior distribution with the prior distribution through the plot.
 
-
+\newpage
 \textbf{Problem 6C}\
 Re-do Problem 4F) of mandatory assignment 2.\
 ```{r}
@@ -849,12 +859,12 @@ uncertainty <- function(dataInfo) {
 
 ```{r}
 plotNum <- 1
-uncertainty(ind.result)
+uncertainty(prior.values)
 ```
 
 ```{r}
 plotNum <- 2
-uncertainty(prior.values)
+uncertainty(ind.result)
 ```
 
 The plots correspond to the data received from problem 6B. When observing the data, the variance of the R- and S-values decreases, which means that the posterior distribution will represent the required hospital beds more accurate than the prior distribution by itself.
@@ -863,7 +873,7 @@ The 90% confidence interval of the prior distribution ranges between 80 and 260 
 
 The 90% confidence interval of the posterior distribution has a width of around 10 required hospital beds, and follows the mean closely. Because all of the trajectories of the posterior distribution are close to equal, the result makes sense.\
 
-
+\newpage
 \textbf{Problem 6D}\
 Distribution of the total number of ”hospital-bed-days” for December 2020, January 2021 and February 2021.\
 
@@ -899,12 +909,15 @@ posteriorList <- hospBeds(ind.result)
 
 boxplot(cbind(priorList, posteriorList),
         col = c("red", "red", "red", "blue", "blue", "blue"),
-        notch = TRUE, varwidth = TRUE)
-legend("topright", legend = c("Prior", "Posterior"), col = c("red", "blue"), pch = 22, cex = 1.2)
+        notch = TRUE, varwidth = TRUE, 
+        xlab = "Months", ylab = "Number of Beds", 
+        main = "Hospital daybeds")
+legend("topright", legend = c("Prior", "Posterior"), col = c("red", "blue"),
+       pch = 22, cex = 1.2)
 ```
 
-The plot explains that without the given dataset of required beds from December, January and February, the uncertainty of how many beds are required increases. In this case, the number of required hospital beds ranges between 7000 and 4000 per month.
+The plot explains that without the given dataset of required beds from December, January and February, the uncertainty of how many beds are required increases. In this case, the number of required hospital beds ranges between 4000 and 7000 per month.
 
-By taking the observed data from \formatdate{21}{03}{2020} to \formatdate{18}{07}{2020} into consideration, the uncertainty drastically decreases. This means that if the data is representative for the given situation, the estimation of required hospital beds is much more exact. With a high confidence, it can be seen that the required number of hospital beds for December, January and February is 4300, 5500 and 4800, respectively, with a standard deviation of around 90 hospital beds.\
+By taking the observed data from 21th March to 18th July into consideration, the uncertainty drastically decreases. This means that if the data is representative for the given situation, the estimation of required hospital beds is much more exact. With a high confidence, it can be seen that the required number of hospital beds for December, January and February is 4300, 5500 and 4800, respectively, with a standard deviation of around 90 hospital beds.\
 
 
